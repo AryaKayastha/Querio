@@ -3,7 +3,7 @@ from typing import Literal, Optional, TypedDict
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
-from querio_chatbot.config import CONFIDENCE_THRESHOLD, DOMAINS, GUIDANCE_ONLY_SYSTEM_NOTE
+from querio_chatbot.config import CONFIDENCE_THRESHOLD, DOMAINS, GUIDANCE_ONLY_SYSTEM_NOTE, INACTIVE_DOMAIN_TOPICS
 from querio_chatbot.llm.gemini_client import get_chat_model
 from querio_chatbot.retrieval.retriever import retrieve
 
@@ -41,6 +41,23 @@ class ChatState(TypedDict, total=False):
     guidance_only: bool
 
 
+def _extract_text(content) -> str:
+    """Some Gemini models return response.content as a list of content blocks
+    (text parts plus opaque non-text parts like thought signatures) instead of
+    a plain string -- pull just the text parts out."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict) and item.get("type") == "text":
+                parts.append(item.get("text", ""))
+        return "".join(parts)
+    return str(content)
+
+
 def _domain_name(code: Optional[str]) -> str:
     return DOMAINS[code].name if code in DOMAINS else str(code)
 
@@ -56,11 +73,14 @@ def _build_clarifying_message(state: ChatState) -> str:
 
 
 def classify_node(state: ChatState) -> ChatState:
-    domain_descriptions = "\n".join(f"- {code}: {d.name}" for code, d in DOMAINS.items())
+    domain_descriptions = "\n".join(f"- {code}: {d.name} — {d.description}" for code, d in DOMAINS.items())
     prompt = (
-        "You are a routing classifier for a college assistant. Given the student's "
-        f"question, choose the single best matching domain from:\n{domain_descriptions}\n"
-        "If the question doesn't clearly match any of these, respond UNROUTED.\n\n"
+        "You are a routing classifier for a college assistant. The assistant currently only "
+        f"handles these domains:\n{domain_descriptions}\n\n"
+        f"Other real topics also exist at the college -- {INACTIVE_DOMAIN_TOPICS} -- but are "
+        "NOT handled yet. If the question is about one of those, or anything else outside the "
+        "domains listed above, respond UNROUTED. Do not force a question into a domain just "
+        "because it's the closest available option.\n\n"
         f"Question: {state['query']}"
     )
     structured_llm = get_chat_model().with_structured_output(Classification)
@@ -108,7 +128,7 @@ def generate_node(state: ChatState) -> ChatState:
         + f"\n\nContext:\n{context}\n\nQuestion: {state['query']}\n\nAnswer:"
     )
     response = get_chat_model().invoke(prompt)
-    return {"answer": response.content}
+    return {"answer": _extract_text(response.content)}
 
 
 def build_graph():
