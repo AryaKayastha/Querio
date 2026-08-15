@@ -1,0 +1,23 @@
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 700;
+  font-family: var(--font-body);
+  color: #ffffff;
+  background-color: var(--color-accent);
+}
+
+.avatar.dark {
+  background-color: var(--color-ink);
+}
+
+.avatar.gold {
+  background-color: var(--color-highlight);
+}
+
+.avatar.person {
+  background-color: #4a5a6e;
+  border-radius: 50%;
+}

@@ -1,0 +1,34 @@
+.messageRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.messageRow.user {
+  justify-content: flex-end;
+}
+
+.bubbleColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 78%;
+}
+
+.bubble {
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 11px 14px;
+}
+
+.bubble.bot {
+  background-color: var(--color-accent-soft);
+  color: var(--color-ink);
+  align-self: flex-start;
+}
+
+.bubble.user {
+  background-color: var(--color-ink);
+  color: #ffffff;
+  align-self: flex-end;
+}

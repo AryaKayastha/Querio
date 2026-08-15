@@ -1,0 +1,18 @@
+.page {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+
+.mainColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.inputWrapper {
+  padding: 14px 24px 20px;
+  flex-shrink: 0;
+}
