@@ -30,7 +30,9 @@ def test_parse_frontmatter_missing_block_returns_full_text():
 
 
 def test_load_domain_chunks_extracts_metadata_and_sections():
-    fixture_domain = Domain(code="TEST", name="Test", data_dir=FIXTURES_DIR, guidance_only=False)
+    fixture_domain = Domain(
+        code="TEST", name="Test", description="Test fixture domain", data_dir=FIXTURES_DIR, guidance_only=False
+    )
     chunks = load_domain_chunks(fixture_domain)
 
     assert len(chunks) >= 2
