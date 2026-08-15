@@ -18,6 +18,7 @@ class SourceRef(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     domain: str
+    confidence: float
     sources: list[SourceRef]
     guidance_only: bool
 
@@ -29,6 +30,7 @@ def chat(request: ChatRequest) -> ChatResponse:
     return ChatResponse(
         answer=result.get("answer", ""),
         domain=result.get("domain", "UNROUTED"),
+        confidence=result.get("confidence", 0.0),
         sources=[
             SourceRef(
                 source_name=doc.metadata.get("source_name", "unknown"),

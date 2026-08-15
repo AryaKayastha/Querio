@@ -1,9 +1,9 @@
-from typing import Literal, TypedDict
+from typing import Literal, Optional, TypedDict
 
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
-from querio_chatbot.config import DOMAINS, GUIDANCE_ONLY_SYSTEM_NOTE
+from querio_chatbot.config import CONFIDENCE_THRESHOLD, DOMAINS, GUIDANCE_ONLY_SYSTEM_NOTE
 from querio_chatbot.llm.gemini_client import get_chat_model
 from querio_chatbot.retrieval.retriever import retrieve
 
@@ -19,15 +19,40 @@ DomainCode = Literal["D5", "D6", "UNROUTED"]
 
 
 class Classification(BaseModel):
-    domain: DomainCode = Field(description="The domain this query belongs to, or UNROUTED if none fit")
+    domain: DomainCode = Field(description="The single best matching domain, or UNROUTED if none fit")
+    confidence: float = Field(ge=0, le=1, description="How confident you are in this domain, from 0 to 1")
+    alternative_domain: Optional[DomainCode] = Field(
+        default=None,
+        description=(
+            "The second-most-likely domain if the query could plausibly belong to more "
+            "than one, otherwise null"
+        ),
+    )
 
 
 class ChatState(TypedDict, total=False):
     query: str
     domain: str
+    confidence: float
+    alternative_domain: Optional[str]
+    low_confidence: bool
     documents: list
     answer: str
     guidance_only: bool
+
+
+def _domain_name(code: Optional[str]) -> str:
+    return DOMAINS[code].name if code in DOMAINS else str(code)
+
+
+def _build_clarifying_message(state: ChatState) -> str:
+    alternative = state.get("alternative_domain")
+    if alternative and alternative != state["domain"] and alternative in DOMAINS:
+        return (
+            f"I'm not fully sure whether your question is about {_domain_name(state['domain'])} "
+            f"or {_domain_name(alternative)}. Could you clarify which one you mean?"
+        )
+    return "I'm not fully sure which topic your question is about. Could you rephrase it with a bit more detail?"
 
 
 def classify_node(state: ChatState) -> ChatState:
@@ -40,10 +65,17 @@ def classify_node(state: ChatState) -> ChatState:
     )
     structured_llm = get_chat_model().with_structured_output(Classification)
     result = structured_llm.invoke(prompt)
-    return {"domain": result.domain}
+    return {
+        "domain": result.domain,
+        "confidence": result.confidence,
+        "alternative_domain": result.alternative_domain,
+        "low_confidence": result.confidence < CONFIDENCE_THRESHOLD,
+    }
 
 
 def retrieve_node(state: ChatState) -> ChatState:
+    if state.get("low_confidence"):
+        return {"documents": []}
     domain_code = state["domain"]
     if domain_code not in DOMAINS:
         return {"documents": []}
@@ -52,6 +84,9 @@ def retrieve_node(state: ChatState) -> ChatState:
 
 
 def generate_node(state: ChatState) -> ChatState:
+    if state.get("low_confidence"):
+        return {"answer": _build_clarifying_message(state)}
+
     documents = state.get("documents", [])
     if not documents:
         return {"answer": NO_ANSWER_MESSAGE}
