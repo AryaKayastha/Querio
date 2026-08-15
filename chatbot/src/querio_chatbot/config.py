@@ -40,6 +40,10 @@ DOMAINS: dict[str, Domain] = {
     ),
 }
 
+# Below this, the router treats the query as ambiguous and asks the student to
+# clarify instead of committing to a domain -- see 02_architecture.md §2.2.
+CONFIDENCE_THRESHOLD = 0.6
+
 GUIDANCE_ONLY_SYSTEM_NOTE = (
     "This domain is guidance-only. Explain the process, policy, eligibility, required "
     "documents, and timelines, and point the student to the right contact/procedure. "
