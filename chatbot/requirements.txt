@@ -4,6 +4,7 @@ langchain-chroma
 langchain-text-splitters
 langgraph
 chromadb
+pypdf
 fastapi
 uvicorn[standard]
 pydantic

@@ -51,6 +51,11 @@ INACTIVE_DOMAIN_TOPICS = (
     "and career/internship/placement (including NOC)"
 )
 
+def collection_name(domain_code: str) -> str:
+    # Chroma requires collection names >= 3 chars; domain codes ("D5") are too short on their own.
+    return f"domain_{domain_code}"
+
+
 # Below this, the router treats the query as ambiguous and asks the student to
 # clarify instead of committing to a domain -- see 02_architecture.md §2.2.
 CONFIDENCE_THRESHOLD = 0.6

@@ -3,14 +3,14 @@ from functools import lru_cache
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
-from querio_chatbot.config import VECTORSTORE_DIR
+from querio_chatbot.config import VECTORSTORE_DIR, collection_name
 from querio_chatbot.llm.gemini_client import get_embeddings
 
 
 @lru_cache
 def _get_collection(domain_code: str) -> Chroma:
     return Chroma(
-        collection_name=domain_code,
+        collection_name=collection_name(domain_code),
         embedding_function=get_embeddings(),
         persist_directory=str(VECTORSTORE_DIR),
     )
