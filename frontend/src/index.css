@@ -1,0 +1,28 @@
+* { box-sizing: border-box; }
+:root { font-family: Inter, system-ui, sans-serif; color: #203142; background: #f5f7f8; }
+body { margin: 0; min-width: 320px; }
+button, input { font: inherit; }
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 260px; padding: 24px 18px; color: #fff; background: #182938; }
+.brand { display: flex; align-items: center; gap: 12px; font-size: 20px; margin-bottom: 42px; }
+.brand span, .avatar { display: grid; place-items: center; background: #c98b34; color: #fff; font-weight: 700; }
+.brand span { width: 34px; height: 34px; }
+.new-query { width: 100%; padding: 13px; border: 0; color: #fff; background: #3f7892; cursor: pointer; }
+.section-label { margin-top: 36px; color: #91a7b6; text-transform: uppercase; font-size: 12px; letter-spacing: .1em; }
+.chat-panel { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 22px 28px; border-bottom: 1px solid #e1e6e8; background: #fff; }
+header span { padding: 7px 10px; color: #397052; background: #e5f2eb; font-size: 12px; }
+.messages { flex: 1; overflow: auto; padding: 28px; }
+.message-row { display: flex; gap: 10px; margin-bottom: 22px; align-items: flex-start; }
+.message-row.user { flex-direction: row-reverse; }
+.avatar { width: 26px; height: 26px; flex: 0 0 26px; background: #3f7892; font-size: 11px; }
+.message-bubble { max-width: min(820px, 80%); padding: 14px 16px; background: #e8f0f3; line-height: 1.6; white-space: pre-wrap; }
+.message-row.user .message-bubble { color: #fff; background: #1d2d3b; }
+.message-bubble a, .message-bubble button { color: #99651c; font-weight: 700; text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer; }
+.message-bubble small { display: block; margin-top: 12px; color: #607381; font-size: 11px; }
+.typing { color: #607381; font-style: italic; }
+.composer { display: flex; gap: 10px; margin: 0 28px 22px; padding: 10px; border: 1px solid #d9e0e4; border-radius: 12px; background: #fff; }
+.composer input { flex: 1; min-width: 0; padding: 12px; border: 0; outline: 0; }
+.composer button { width: 44px; border: 0; color: #fff; background: #3f7892; cursor: pointer; }
+.composer button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 700px) { .sidebar { display: none; } .messages { padding: 18px; } header { padding: 18px; } .composer { margin: 0 18px 18px; } }

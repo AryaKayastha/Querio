@@ -1,45 +1,7 @@
-"""Chunk + embed each active domain's source documents into its Chroma collection.
+"""Chunk and embed active-domain source documents into Chroma collections.
 
-<<<<<<< Updated upstream
-Document format expected in ../data/<domain>/*.md (see data/README.md):
-
-    ---
-    source_name: Attendance Policy 2025-26
-    source_type: policy_document
-    last_updated: 2026-01-15
-    owner_contact: Office of Academic Affairs
-    ---
-
-    # Heading
-    ... content ...
-"""
-
-from langchain_chroma import Chroma
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
-
-from querio_chatbot.config import DOMAINS, VECTORSTORE_DIR, Domain
-from querio_chatbot.llm.gemini_client import get_embeddings
-
-FRONTMATTER_FIELDS = ("source_name", "source_type", "last_updated", "owner_contact")
-=======
-Supports two source formats in ../data/<domain>/:
-
-1. Curated markdown/text with frontmatter (see data/README.md):
-
-       ---
-       source_name: Attendance Policy 2025-26
-       source_type: policy_document
-       last_updated: 2026-01-15
-       owner_contact: Office of Academic Affairs
-       ---
-
-       # Heading
-       ... content ...
-
-2. Raw PDFs, as-gathered from departments (no metadata beyond the filename and
-   page number -- fine for citations, just less precise than curated markdown).
-   Scanned/image-only PDFs (no extractable text) are skipped with a warning;
-   they need OCR before they can be ingested.
+Supported formats are curated Markdown/text with frontmatter and raw PDFs.
+Scanned PDFs without extractable text are skipped with a warning.
 """
 
 import time
@@ -54,8 +16,9 @@ from querio_chatbot.config import DOMAINS, VECTORSTORE_DIR, Domain, collection_n
 from querio_chatbot.llm.gemini_client import get_embeddings
 
 FRONTMATTER_FIELDS = ("source_name", "source_type", "source_url", "last_updated", "owner_contact")
->>>>>>> Stashed changes
 HEADER_SPLIT_ON = [("#", "h1"), ("##", "h2"), ("###", "h3")]
+EMBED_BATCH_SIZE = 15
+EMBED_BATCH_DELAY_SECONDS = 10
 
 
 def _parse_frontmatter(raw_text: str) -> tuple[dict, str]:
@@ -64,6 +27,7 @@ def _parse_frontmatter(raw_text: str) -> tuple[dict, str]:
     parts = raw_text.split("---", 2)
     if len(parts) < 3:
         return {}, raw_text
+
     _, frontmatter_block, body = parts
     metadata = {}
     for line in frontmatter_block.strip().splitlines():
@@ -80,9 +44,6 @@ def _section_heading(section_metadata: dict) -> str:
     return section_metadata.get("h3") or section_metadata.get("h2") or section_metadata.get("h1") or ""
 
 
-<<<<<<< Updated upstream
-def load_domain_chunks(domain: Domain) -> list:
-=======
 def _clean_source_name(path: Path) -> str:
     stem = path.stem
     if stem.lower().endswith(".docx"):
@@ -107,12 +68,10 @@ def _load_markdown_chunks(path: Path, header_splitter, chunk_splitter) -> list[D
 
 
 def _load_pdf_chunks(path: Path, chunk_splitter) -> list[Document]:
-    # Department exports are not always fully standards-compliant PDFs. Tolerant
-    # parsing lets us ingest the readable pages instead of losing an entire source.
     reader = pypdf.PdfReader(path, strict=False)
     source_name = _clean_source_name(path)
-
     chunks = []
+
     for page_number, page in enumerate(reader.pages, start=1):
         page_text = (page.extract_text() or "").strip()
         if not page_text:
@@ -135,7 +94,6 @@ def _load_pdf_chunks(path: Path, chunk_splitter) -> list[Document]:
 
 
 def _source_paths(data_dir: Path) -> list[Path]:
-    """Return supported source files without relying on filename case."""
     return sorted(
         path
         for path in data_dir.iterdir()
@@ -144,43 +102,10 @@ def _source_paths(data_dir: Path) -> list[Path]:
 
 
 def load_domain_chunks(domain: Domain) -> list[Document]:
->>>>>>> Stashed changes
     header_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=HEADER_SPLIT_ON)
     chunk_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-
     documents = []
-<<<<<<< Updated upstream
-    source_files = sorted(domain.data_dir.glob("*.md")) + sorted(domain.data_dir.glob("*.txt"))
-    for path in source_files:
-        raw_text = path.read_text(encoding="utf-8")
-        doc_metadata, body = _parse_frontmatter(raw_text)
-        if not body:
-            continue
 
-        sections = header_splitter.split_text(body)
-        for section in sections:
-            for chunk in chunk_splitter.split_documents([section]):
-                chunk.metadata.update(doc_metadata)
-                chunk.metadata["domain"] = domain.code
-                chunk.metadata["source_section"] = _section_heading(chunk.metadata) or path.stem
-                chunk.metadata.setdefault("source_name", path.stem)
-                documents.append(chunk)
-    return documents
-
-
-def ingest_domain(domain: Domain) -> int:
-    chunks = load_domain_chunks(domain)
-    if not chunks:
-        print(f"[{domain.code}] no documents found in {domain.data_dir} -- skipping")
-        return 0
-
-    Chroma.from_documents(
-        documents=chunks,
-        embedding=get_embeddings(),
-        collection_name=domain.code,
-        persist_directory=str(VECTORSTORE_DIR),
-    )
-=======
     for path in _source_paths(domain.data_dir):
         try:
             if path.suffix.lower() == ".pdf":
@@ -188,19 +113,11 @@ def ingest_domain(domain: Domain) -> int:
             else:
                 documents.extend(_load_markdown_chunks(path, header_splitter, chunk_splitter))
         except Exception as exc:
-            # Keep the other Domain 5 sources available when one departmental
-            # export is corrupt or uses an unsupported PDF feature.
             print(f"  [!] Could not ingest {path.name}: {exc}")
 
     for chunk in documents:
         chunk.metadata["domain"] = domain.code
     return documents
-
-
-# Gemini's free-tier embedding quota is rate-limited per minute, not just per day --
-# batch + pace requests to stay under it rather than firing hundreds of embed calls at once.
-EMBED_BATCH_SIZE = 15
-EMBED_BATCH_DELAY_SECONDS = 10
 
 
 def ingest_domain(domain: Domain) -> int:
@@ -222,8 +139,7 @@ def ingest_domain(domain: Domain) -> int:
         if done < len(chunks):
             time.sleep(EMBED_BATCH_DELAY_SECONDS)
 
->>>>>>> Stashed changes
-    print(f"[{domain.code}] ingested {len(chunks)} chunks from {len(list(domain.data_dir.glob('*')))} files")
+    print(f"[{domain.code}] ingested {len(chunks)} chunks from {len(_source_paths(domain.data_dir))} files")
     return len(chunks)
 
 

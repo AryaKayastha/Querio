@@ -14,7 +14,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# TODO: Add deployed frontend origin(s) here for non-local environments.
 
 
 class ChatRequest(BaseModel):
