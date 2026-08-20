@@ -1,4 +1,4 @@
-from querio_chatbot.router.router import _build_clarifying_message, _extract_text, generate_node, retrieve_node
+from querio_backend.router.router import _build_clarifying_message, _extract_text, generate_node, retrieve_node
 
 
 def test_retrieve_node_skips_retrieval_when_low_confidence():

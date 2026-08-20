@@ -1,10 +1,10 @@
 """Interactive CLI for manually testing the router/retrieval/generation graph
 once GEMINI_API_KEY is set and documents have been ingested.
 
-Usage: python -m querio_chatbot.scripts.chat_cli
+Usage: python -m querio_backend.scripts.chat_cli
 """
 
-from querio_chatbot.router.router import answer_query
+from querio_backend.router.router import answer_query
 
 
 def main() -> None:

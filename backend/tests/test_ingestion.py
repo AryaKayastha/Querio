@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from querio_chatbot.config import Domain
-from querio_chatbot.ingestion.ingest import _parse_frontmatter, load_domain_chunks
+from querio_backend.config import Domain
+from querio_backend.ingestion.ingest import _parse_frontmatter, load_domain_chunks
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 

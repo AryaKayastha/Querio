@@ -4,9 +4,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 CHATBOT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(dotenv_path=CHATBOT_ROOT / ".env", override=True)
+
 DATA_ROOT = CHATBOT_ROOT.parent / "data"
 VECTORSTORE_DIR = CHATBOT_ROOT / "vectorstore"
 

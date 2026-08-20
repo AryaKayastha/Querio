@@ -28,8 +28,8 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
-from querio_chatbot.config import DOMAINS, VECTORSTORE_DIR, Domain, collection_name
-from querio_chatbot.llm.gemini_client import get_embeddings
+from querio_backend.config import DOMAINS, VECTORSTORE_DIR, Domain, collection_name
+from querio_backend.llm.gemini_client import get_embeddings
 
 FRONTMATTER_FIELDS = ("source_name", "source_type", "last_updated", "owner_contact")
 HEADER_SPLIT_ON = [("#", "h1"), ("##", "h2"), ("###", "h3")]

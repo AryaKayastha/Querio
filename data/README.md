@@ -1,12 +1,29 @@
-# Domain Document Corpora
+# Domain document corpora
 
-Raw source documents per domain, before chunking/embedding. See [`Project_Details/03_data_requirements.md`](../Project_Details/03_data_requirements.md) for what to collect and how to describe each document.
+This folder stores the raw source documents that are later chunked and embedded by the backend ingestion pipeline.
 
-## Format
+See [`Project_Details/03_data_requirements.md`](../Project_Details/03_data_requirements.md) for collection guidance and metadata expectations.
 
-Drop each source document as a `.md` or `.txt` file inside its domain folder. At the top of each file, include a small metadata header so the ingestion pipeline (`chatbot/src/querio_chatbot/ingestion/ingest.py`) can populate citations correctly:
+## Folder structure
 
+```text
+data/
+├── README.md
+├── D1_clubs/
+├── D2_certifications/
+├── D3_eca_sports/
+├── D4_career_noc/
+├── D5_formal_education/
+└── D6_leave_attendance/
 ```
+
+## File format
+
+Store each source document as `.md` or `.txt` inside the appropriate domain folder.
+
+Each file should begin with a small metadata block so the ingestion pipeline can create citations correctly:
+
+```text
 ---
 source_name: Attendance Policy 2025-26
 source_type: policy_document
@@ -14,20 +31,26 @@ last_updated: 2026-01-15
 owner_contact: Office of Academic Affairs
 ---
 
-# Actual document content starts here, in sections with headings.
+# Actual document content starts here.
 ## Section heading
 ...
 ```
 
-The `source_name` + the nearest heading above a chunk become that chunk's citation.
+The backend ingestion code at `backend/src/querio_backend/ingestion/ingest.py` uses this metadata when building document chunks.
 
-## Folders
+## Domain folders
 
 | Folder | Domain | Status |
 |---|---|---|
-| `D1_clubs/` | Co-curricular Activities & Clubs | needs data |
+| `D1_clubs/` | Co-curricular activities and clubs | needs data |
 | `D2_certifications/` | Certifications | needs data |
-| `D3_eca_sports/` | Extra-Curricular Activities & Sports | needs data |
-| `D4_career_noc/` | Career/Internship/Placement (incl. NOC) | needs data |
-| `D5_formal_education/` | Formal Education | **has data — current target** |
-| `D6_leave_attendance/` | Leave Management & Attendance | **has data — current target** |
+| `D3_eca_sports/` | Extra-curricular activities and sports | needs data |
+| `D4_career_noc/` | Career, internship, placement, and NOC | needs data |
+| `D5_formal_education/` | Formal education | current target |
+| `D6_leave_attendance/` | Leave management and attendance | current target |
+
+## Notes
+
+- Keep document titles and section headings clear and stable.
+- Prefer one topic per file when possible.
+- Do not commit generated vector store files; they are rebuilt from this source corpus.

@@ -1,10 +1,10 @@
 """Measures routing accuracy against ROUTING_TEST_SET. Requires GEMINI_API_KEY.
 
-Usage: python -m querio_chatbot.eval.routing_accuracy
+Usage: python -m querio_backend.eval.routing_accuracy
 """
 
-from querio_chatbot.eval.routing_test_set import ROUTING_TEST_SET
-from querio_chatbot.router.router import classify_node
+from querio_backend.eval.routing_test_set import ROUTING_TEST_SET
+from querio_backend.router.router import classify_node
 
 
 def run() -> float:

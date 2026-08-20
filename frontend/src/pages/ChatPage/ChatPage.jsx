@@ -46,8 +46,8 @@ const ChatPage = () => {
   const startBotReply = (chatId, userMessageText) => {
     setIsBotTyping(true);
 
-    window.setTimeout(() => {
-      const botReply = getBotReply(userMessageText);
+    window.setTimeout(async () => {
+      const botReply = await getBotReply(userMessageText);
 
       const botMessage = {
         id: generateId("bot-message"),

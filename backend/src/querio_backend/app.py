@@ -1,9 +1,19 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from querio_chatbot.router.router import answer_query
+from querio_backend.router.router import answer_query
 
 app = FastAPI(title="Querio Chatbot")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# TODO: Add deployed frontend origin(s) here for non-local environments.
 
 
 class ChatRequest(BaseModel):

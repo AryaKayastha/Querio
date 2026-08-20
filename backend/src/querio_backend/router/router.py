@@ -1,11 +1,12 @@
+import re
 from typing import Literal, Optional, TypedDict
 
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
-from querio_chatbot.config import CONFIDENCE_THRESHOLD, DOMAINS, GUIDANCE_ONLY_SYSTEM_NOTE, INACTIVE_DOMAIN_TOPICS
-from querio_chatbot.llm.gemini_client import get_chat_model
-from querio_chatbot.retrieval.retriever import retrieve
+from querio_backend.config import CONFIDENCE_THRESHOLD, DOMAINS, GUIDANCE_ONLY_SYSTEM_NOTE, INACTIVE_DOMAIN_TOPICS
+from querio_backend.llm.gemini_client import get_chat_model
+from querio_backend.retrieval.retriever import retrieve
 
 NO_ANSWER_MESSAGE = (
     "I don't have information to answer that yet. Please check with the relevant "
@@ -16,6 +17,11 @@ NO_ANSWER_MESSAGE = (
 # are brought online (currently D5, D6). UNROUTED means the query didn't clearly
 # match any active domain.
 DomainCode = Literal["D5", "D6", "UNROUTED"]
+
+_SMALLTALK_PATTERN = re.compile(
+    r"^\s*(hi|hello|hey|hii+|yo|good\s*(morning|afternoon|evening)|thanks|thank you|bye|goodbye)\s*[!.?]*\s*$",
+    re.IGNORECASE,
+)
 
 
 class Classification(BaseModel):
@@ -39,6 +45,24 @@ class ChatState(TypedDict, total=False):
     documents: list
     answer: str
     guidance_only: bool
+
+
+def is_smalltalk(query: str) -> bool:
+    return bool(_SMALLTALK_PATTERN.match(query))
+
+
+def smalltalk_node(state: ChatState) -> ChatState:
+    return {
+        "domain": "UNROUTED",
+        "confidence": 1.0,
+        "answer": "Hi! I can help with questions about your courses, curriculum, or academics. What would you like to know?",
+        "documents": [],
+        "guidance_only": False,
+    }
+
+
+def route_entry(state: ChatState) -> str:
+    return "smalltalk_node" if is_smalltalk(state["query"]) else "classify_node"
 
 
 def _extract_text(content) -> str:
@@ -116,9 +140,12 @@ def generate_node(state: ChatState) -> ChatState:
         for doc in documents
     )
     system_instructions = [
-        "Answer the student's question using ONLY the provided context.",
-        "Cite the source document name for any facts you use.",
-        "If the context doesn't contain the answer, say you don't have that information -- do not guess.",
+    "Answer the student's question using ONLY the provided context.",
+    "Do not include source names, page numbers, or citations in your answer text — sources are shown separately in the UI.",
+    "If the context doesn't contain the answer, say you don't have that information -- do not guess.",
+    "Format your answer in clean markdown: use a numbered or bulleted list when listing multiple items (e.g. subjects, steps), "
+    "with the key term in bold and a short description after it. Keep entries on separate lines, not run together in one paragraph.",
+    "Be concise. Do not repeat the question back to the student.",
     ]
     if state.get("guidance_only"):
         system_instructions.append(GUIDANCE_ONLY_SYSTEM_NOTE)
@@ -133,11 +160,20 @@ def generate_node(state: ChatState) -> ChatState:
 
 def build_graph():
     graph = StateGraph(ChatState)
+    graph.add_node("smalltalk", smalltalk_node)
     graph.add_node("classify", classify_node)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("generate", generate_node)
 
-    graph.set_entry_point("classify")
+    graph.add_conditional_edges(
+        START,
+        route_entry,
+        {
+            "smalltalk_node": "smalltalk",
+            "classify_node": "classify",
+        },
+    )
+    graph.add_edge("smalltalk", END)
     graph.add_edge("classify", "retrieve")
     graph.add_edge("retrieve", "generate")
     graph.add_edge("generate", END)
