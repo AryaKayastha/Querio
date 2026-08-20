@@ -1,0 +1,21 @@
+.item {
+  padding: 9px 10px;
+  font-size: 11.5px;
+  color: #b7c0cc;
+  text-align: left;
+  width: 100%;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item:hover {
+  background-color: #232e3a;
+  color: #ffffff;
+}
+
+.item.active {
+  background-color: #26313d;
+  color: #ffffff;
+}

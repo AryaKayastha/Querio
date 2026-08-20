@@ -1,0 +1,90 @@
+.page {
+  min-height: 100vh;
+  background-color: var(--color-bg);
+}
+
+.exitBar {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 50;
+}
+
+.exitLink {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--color-ink);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+
+.exitLink:hover {
+  background-color: var(--color-accent);
+}
+
+.siteNav {
+  background-color: var(--color-ink);
+  padding: 18px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.siteBrand {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.siteLinks {
+  display: flex;
+  gap: 26px;
+  font-size: 12px;
+  color: #b7c0cc;
+}
+
+.siteBody {
+  padding: 48px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.pageHeading {
+  height: 22px;
+  width: 320px;
+  background-color: var(--color-line);
+  margin-bottom: 16px;
+}
+
+.pageLine {
+  height: 10px;
+  background-color: var(--color-line);
+  margin-bottom: 10px;
+}
+
+.pageLine.short {
+  width: 60%;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.placeholderCard {
+  height: 110px;
+  background-color: #ffffff;
+  border: 1px solid var(--color-line);
+}
+
+.hintText {
+  margin-top: 40px;
+  font-size: 12px;
+  color: var(--color-muted);
+  text-align: center;
+}

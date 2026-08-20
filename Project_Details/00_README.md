@@ -1,28 +1,48 @@
-# Querio — Project Documentation Index
+# Querio project documentation index
 
-This folder is the working reference set for **Querio**, a minor project (9 credits, B.Tech Computer Engineering, 7th Semester, Department of Computer Engineering) — a conversational AI agent that answers student questions across six mentor-approved domains of college life, using retrieval-augmented generation (RAG) over real institutional documents.
+This folder contains the working reference set for Querio, a minor project for the Department of Computer Engineering. Querio is a conversational AI assistant that answers student questions across six mentor-approved domains of college life using retrieval-augmented generation over real institutional documents.
 
-**Team:** Arya Kayastha (23CE055, Data & AI Engineer) · Jahnavi Patel (23CE095, Software Developer) · Nancy Vaghela (D24CE176, Software Developer)
+Team:
 
-Use these files as standing context whenever you're stuck, planning a sprint, writing the report, or prepping for a mentor review. They're written to be self-contained — no extra explanation should be needed to make sense of them.
+- Arya Kayastha (23CE055, Data and AI Engineer)
+- Jahnavi Patel (23CE095, Software Developer)
+- Nancy Vaghela (D24CE176, Software Developer)
 
-## Files in this set
+Use these files as standing context when planning work, writing report sections, preparing a mentor review, or checking project scope.
 
-| File | Use it when you need to... |
+## Repository structure
+
+```text
+Querio/
+├── backend/
+├── frontend/
+├── data/
+├── Project_Details/
+└── README.md
+```
+
+## Documentation files
+
+| File | Purpose |
 |---|---|
-| [`01_project_planning.md`](./01_project_planning.md) | Recall the problem statement, objectives, phased timeline, role split, or success criteria — or write report sections. |
-| [`02_architecture.md`](./02_architecture.md) | Design or explain a component, decide where new logic belongs, or draw the system diagram. |
-| [`03_data_requirements.md`](./03_data_requirements.md) | Plan document collection, design DB schemas, or build the golden/evaluation datasets. |
-| [`04_scope_and_guardrails.md`](./04_scope_and_guardrails.md) | Check whether a feature idea is in-scope, especially anything touching NOC or Leave (Domains 4 & 6). |
-| [`05_evaluation_and_testing.md`](./05_evaluation_and_testing.md) | Design test cases, set up RAGAS, or check against success criteria before a demo. |
+| [`01_project_planning.md`](./01_project_planning.md) | Problem statement, objectives, timeline, team roles, and success criteria |
+| [`02_architecture.md`](./02_architecture.md) | System design, component boundaries, and integration flow |
+| [`03_data_requirements.md`](./03_data_requirements.md) | Source collection plan, document metadata, and database/schema guidance |
+| [`04_scope_and_guardrails.md`](./04_scope_and_guardrails.md) | Scope limits, especially guidance-only behavior for Domains 4 and 6 |
+| [`05_evaluation_and_testing.md`](./05_evaluation_and_testing.md) | Test strategy, evaluation datasets, and demo readiness criteria |
 
-## The one rule that overrides every other doc
+## Key project rule
 
-**Domains 4 (Career/Internship/Placement incl. NOC) and 6 (Leave Management & Attendance) are guidance-only, never transactional.** Querio explains processes and policy; it never submits, approves, rejects, routes, or tracks a request. This was an explicit mentor correction after an earlier design (a full approval workflow) was rejected. Any feature idea that reintroduces submission/approval/tracking for these two domains is out of scope — see `04_scope_and_guardrails.md` before building anything that touches them.
+Domains 4 (Career, Internship, Placement, and NOC) and 6 (Leave Management and Attendance) are guidance-only. Querio explains process and policy, but it never submits, approves, rejects, routes, or tracks requests. Any feature that reintroduces those actions for these domains is out of scope.
 
-## Quick facts
+## Current implementation focus
 
-- **6 fixed domains** (mentor-approved, do not add/remove without mentor sign-off): Clubs & Co-curricular, Certifications, Extra-Curricular & Sports, Career/Internship/Placement (incl. NOC), Formal Education, Leave Management & Attendance.
-- **Scope:** the student's own university only, for this project.
-- **Inspiration:** loosely inspired by an internal company platform ("Project INT") one team member has seen via an internship — only the RAG + human-guided-boundaries *pattern* was borrowed, no code/infrastructure/proprietary content.
-- **Stack (all free/self-hosted, deliberately not enterprise-scale):** Google ADK or LangGraph, Gemini free tier or Groq (Llama), Chroma or FAISS, FastAPI, PostgreSQL, Telegram bot or web chat widget, RAGAS for evaluation, Docker on a free-tier VM.
+- Backend service: `backend/src/querio_backend/`
+- Frontend app: `frontend/src/`
+- Source documents: `data/`
+- Active domains: D5 (Formal Education) and D6 (Leave Management and Attendance)
+
+## Notes
+
+- The repository is intentionally split so the frontend and backend can evolve independently.
+- Keep this index aligned with the actual folder layout whenever the codebase changes.

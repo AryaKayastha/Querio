@@ -30,6 +30,7 @@ const WidgetPanel = ({ onClose }) => {
         sender: "bot",
         text: botReply.reply,
         sources: botReply.sources,
+        chips: botReply.chips,
       };
 
       setMessages((previousMessages) => [...previousMessages, botMessage]);
@@ -69,7 +70,7 @@ const WidgetPanel = ({ onClose }) => {
         </button>
       </div>
 
-      <ChatWindow messages={messages} isBotTyping={isBotTyping} />
+      <ChatWindow messages={messages} isBotTyping={isBotTyping} onChipSelect={handleSend} />
 
       <div className={styles.inputWrapper}>
         <ChatInput onSend={handleSend} placeholder="Type a message…" />

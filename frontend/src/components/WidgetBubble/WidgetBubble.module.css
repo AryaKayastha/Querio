@@ -1,0 +1,28 @@
+.bubble {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-ink);
+  color: #ffffff;
+  z-index: 40;
+}
+
+.bubble:hover {
+  background-color: var(--color-accent);
+}
+
+.notificationDot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--color-highlight);
+  border: 2px solid var(--color-bg);
+}

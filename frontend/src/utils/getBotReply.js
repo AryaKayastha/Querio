@@ -33,6 +33,9 @@ const normalizeSources = (sources) => {
   return [...uniqueSources.values()];
 };
 
+const sourcesToChips = (sources) =>
+  [...new Set(sources.map((source) => source.source_name).filter(Boolean))];
+
 export const getBotReply = async (messageText) => {
   try {
     const response = await sendChatMessage(messageText);
@@ -42,6 +45,7 @@ export const getBotReply = async (messageText) => {
       : DEFAULT_REPLY;
 
     const sources = normalizeSources(response.sources);
+    const chips = sourcesToChips(sources);
 
     const confidenceValue = Number(response.confidence);
     const confidence = Number.isFinite(confidenceValue) ? confidenceValue : 0;
@@ -49,6 +53,7 @@ export const getBotReply = async (messageText) => {
     return {
       reply,
       sources,
+      chips,
       meta: {
         domain: typeof response.domain === "string" ? response.domain : "",
         confidence,
@@ -60,6 +65,7 @@ export const getBotReply = async (messageText) => {
       return {
         reply: EMPTY_QUERY_REPLY,
         sources: [],
+        chips: [],
       };
     }
 
@@ -67,6 +73,7 @@ export const getBotReply = async (messageText) => {
       return {
         reply: CONNECTIVITY_REPLY,
         sources: [],
+        chips: [],
       };
     }
 
@@ -74,12 +81,14 @@ export const getBotReply = async (messageText) => {
       return {
         reply: "The Querio backend is online, but the chatbot service could not answer this request. Please try again shortly.",
         sources: [],
+        chips: [],
       };
     }
 
     return {
       reply: DEFAULT_REPLY,
       sources: [],
+      chips: [],
     };
   }
 };

@@ -1,4 +1,4 @@
-import httpx
+﻿import httpx
 import pytest
 
 from querio_backend import bridge as app_module

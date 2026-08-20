@@ -3,7 +3,7 @@ import MessageBubble from "../MessageBubble/MessageBubble.jsx";
 import TypingIndicator from "../TypingIndicator/TypingIndicator.jsx";
 import styles from "./ChatWindow.module.css";
 
-const ChatWindow = ({ messages, isBotTyping }) => {
+const ChatWindow = ({ messages, isBotTyping, onChipSelect }) => {
   const bottomAnchorRef = useRef(null);
 
   useEffect(() => {
@@ -15,7 +15,7 @@ const ChatWindow = ({ messages, isBotTyping }) => {
   return (
     <div className={styles.window}>
       {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} />
+        <MessageBubble key={message.id} message={message} onChipSelect={onChipSelect} />
       ))}
 
       {isBotTyping && <TypingIndicator />}

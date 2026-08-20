@@ -54,6 +54,7 @@ const ChatPage = () => {
         sender: "bot",
         text: botReply.reply,
         sources: botReply.sources,
+        chips: botReply.chips,
       };
 
       appendMessageToChat(chatId, botMessage);
@@ -140,6 +141,7 @@ const ChatPage = () => {
         <ChatWindow
           messages={activeMessages}
           isBotTyping={isBotTyping}
+          onChipSelect={handleSend}
         />
 
         <div className={styles.inputWrapper}>

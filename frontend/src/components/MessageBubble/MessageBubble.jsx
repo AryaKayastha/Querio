@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Avatar from "../Avatar/Avatar.jsx";
+import QuickReplyChips from "../QuickReplyChips/QuickReplyChips.jsx";
 import styles from "./MessageBubble.module.css";
 
 const CITATION_PATTERN = /\[([^\]]+)\]|\(([^()]+?)\)/gu;
@@ -25,9 +26,10 @@ const findSource = (citationText, sources) => {
   });
 };
 
-const MessageBubble = ({ message }) => {
+const MessageBubble = ({ message, onChipSelect }) => {
   const isBot = message.sender === "bot";
   const sources = Array.isArray(message.sources) ? message.sources : [];
+  const hasChips = Boolean(message.chips && message.chips.length > 0);
   const [selectedSource, setSelectedSource] = useState(null);
 
   const renderText = () => {
@@ -133,6 +135,10 @@ const MessageBubble = ({ message }) => {
             <span>This source is available in Querio’s knowledge base but has no public link yet.</span>
             <button type="button" onClick={() => setSelectedSource(null)}>Close</button>
           </div>
+        )}
+
+        {hasChips && (
+          <QuickReplyChips chips={message.chips} onChipSelect={onChipSelect} />
         )}
       </div>
     </div>

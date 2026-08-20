@@ -1,0 +1,26 @@
+.card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--color-line);
+  padding: 13px 16px;
+  text-align: left;
+  width: 100%;
+  background-color: #ffffff;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-soft);
+}
+
+.icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.text {
+  font-size: 12.5px;
+  color: var(--color-ink);
+}
