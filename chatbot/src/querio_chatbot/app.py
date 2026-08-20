@@ -13,6 +13,7 @@ class ChatRequest(BaseModel):
 class SourceRef(BaseModel):
     source_name: str
     source_section: str
+    source_url: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -35,6 +36,7 @@ def chat(request: ChatRequest) -> ChatResponse:
             SourceRef(
                 source_name=doc.metadata.get("source_name", "unknown"),
                 source_section=doc.metadata.get("source_section", ""),
+                source_url=doc.metadata.get("source_url"),
             )
             for doc in documents
         ],

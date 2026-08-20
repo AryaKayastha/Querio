@@ -1,6 +1,10 @@
 # Domain Document Corpora
 
+<<<<<<< Updated upstream
 Raw source documents per domain, before chunking/embedding. See [`Project_Details/03_data_requirements.md`](../Project_Details/03_data_requirements.md) for what to collect and how to describe each document.
+=======
+This folder stores the raw source documents that are later chunked and embedded by the chatbot ingestion pipeline.
+>>>>>>> Stashed changes
 
 ## Format
 
@@ -12,6 +16,7 @@ source_name: Attendance Policy 2025-26
 source_type: policy_document
 last_updated: 2026-01-15
 owner_contact: Office of Academic Affairs
+source_url: https://example.edu/attendance-policy
 ---
 
 # Actual document content starts here, in sections with headings.
@@ -19,7 +24,12 @@ owner_contact: Office of Academic Affairs
 ...
 ```
 
+<<<<<<< Updated upstream
 The `source_name` + the nearest heading above a chunk become that chunk's citation.
+=======
+The chatbot ingestion code at `chatbot/src/querio_chatbot/ingestion/ingest.py` uses this metadata when building document chunks.
+If a source has a public web link, add `source_url`; Querio will make its inline citation clickable. Sources without a URL still show their document and section details in the chat.
+>>>>>>> Stashed changes
 
 ## Folders
 

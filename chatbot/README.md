@@ -28,9 +28,19 @@ This (re)builds the Chroma collections in `vectorstore/` (gitignored — regener
 ## Run the service
 
 ```bash
+<<<<<<< Updated upstream
 uvicorn querio_chatbot.app:app --reload --port 8000
 ```
 
+=======
+uvicorn querio_chatbot.app:app --reload --port 8001
+```
+
+The frontend does not call this service directly. The public request flow is:
+
+`frontend:5173` → `backend:8000` → `chatbot:8001`
+
+>>>>>>> Stashed changes
 Then:
 
 ```bash
@@ -46,7 +56,11 @@ curl -X POST http://localhost:8000/chat -H "Content-Type: application/json" -d "
   "answer": "string — the generated answer",
   "domain": "D5 | D6 | UNROUTED",
   "confidence": 0.92,
+<<<<<<< Updated upstream
   "sources": [{"source_name": "...", "source_section": "..."}],
+=======
+  "sources": [{"source_name": "...", "source_section": "...", "source_url": "https://example.edu/source"}],
+>>>>>>> Stashed changes
   "guidance_only": false
 }
 ```

@@ -1,11 +1,25 @@
+<<<<<<< Updated upstream
+<<<<<<<< Updated upstream:chatbot/requirements.txt
+=======
+>>>>>>> Stashed changes
 langchain
 langchain-google-genai
 langchain-chroma
 langchain-text-splitters
 langgraph
 chromadb
+<<<<<<< Updated upstream
+========
+>>>>>>>> Stashed changes:backend/requirements.txt
+=======
+pypdf
+>>>>>>> Stashed changes
 fastapi
 uvicorn[standard]
 pydantic
 python-dotenv
+<<<<<<< Updated upstream
+httpx
+=======
+>>>>>>> Stashed changes
 pytest

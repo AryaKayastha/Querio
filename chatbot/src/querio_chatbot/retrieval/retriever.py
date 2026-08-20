@@ -3,7 +3,11 @@ from functools import lru_cache
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
+<<<<<<< Updated upstream
 from querio_chatbot.config import VECTORSTORE_DIR
+=======
+from querio_chatbot.config import VECTORSTORE_DIR, collection_name
+>>>>>>> Stashed changes
 from querio_chatbot.llm.gemini_client import get_embeddings
 
 
