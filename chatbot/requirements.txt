@@ -4,6 +4,7 @@ langchain-chroma
 langchain-text-splitters
 langgraph
 chromadb
+rank-bm25
 pypdf
 fastapi
 uvicorn[standard]

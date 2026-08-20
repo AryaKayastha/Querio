@@ -97,6 +97,11 @@ export const sendChatMessage = async (query) => {
 };
 
 export const checkHealth = async () => {
+  const status = await getHealthStatus();
+  return status === "online";
+};
+
+export const getHealthStatus = async () => {
   const { controller, timeoutId } = createTimeoutSignal(REQUEST_TIMEOUT_MS);
 
   try {
@@ -106,13 +111,19 @@ export const checkHealth = async () => {
     });
 
     if (!response.ok) {
-      return false;
+      return "offline";
     }
 
     const body = await response.json();
-    return body && body.status === "ok";
+    if (body && body.status === "ok") {
+      return "online";
+    }
+    if (body && body.status === "degraded") {
+      return "degraded";
+    }
+    return "offline";
   } catch {
-    return false;
+    return "offline";
   } finally {
     window.clearTimeout(timeoutId);
   }

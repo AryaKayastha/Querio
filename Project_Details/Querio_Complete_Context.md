@@ -117,9 +117,9 @@ Students repeatedly ask the same questions across all six areas of college life,
 
 ## 8. Team Role Split
 
-- **Arya Kayastha (Data & AI Engineer):** domain classifier/router, per-domain retrieval tuning, RAGAS + routing evaluation harness, document curation strategy across all 6 domains.
-- **Jahnavi Patel (Software Developer):** backend/API, query logging pipeline, admin document-management panel, database schema.
-- **Nancy Vaghela (Software Developer):** chat/bot interface, deployment, integration between the router and retrieval engine.
+- **Arya Kayastha (Data & AI Engineer):** domain classifier/router, per-domain retrieval tuning, RAGAS + routing evaluation harness, document curation strategy across all 6 domains (`chatbot/`).
+- **Jahnavi Patel (Software Developer):** chat UI / web widget, frontend delivery (`frontend/`).
+- **Nancy Vaghela (Software Developer):** backend API bridge, query logging pipeline, admin document-management panel, database schema (`backend/`).
 
 ---
 

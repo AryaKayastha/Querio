@@ -37,9 +37,9 @@ See `04_scope_and_guardrails.md` for the full detail on why this boundary exists
 
 | Member | ID | Role | Primary responsibilities |
 |---|---|---|---|
-| Arya Kayastha | 23CE055 | Data & AI Engineer | Domain classifier/router, per-domain retrieval tuning, RAGAS + routing evaluation harness, document curation strategy across all 6 domains |
-| Jahnavi Patel | 23CE095 | Software Developer | Backend/API, query logging pipeline, admin document-management panel, database schema |
-| Nancy Vaghela | D24CE176 | Software Developer | Chat/bot interface, deployment, integration between the router and retrieval engine |
+| Arya Kayastha | 23CE055 | Data & AI Engineer | Domain classifier/router, per-domain retrieval tuning, RAGAS + routing evaluation harness, document curation strategy across all 6 domains (`chatbot/`) |
+| Jahnavi Patel | 23CE095 | Software Developer | Chat UI / web widget, frontend delivery (`frontend/`) |
+| Nancy Vaghela | D24CE176 | Software Developer | Backend API bridge, query logging pipeline, admin document-management panel, database schema (`backend/`) |
 
 ## 6. Phased Timeline (Semester-Paced)
 

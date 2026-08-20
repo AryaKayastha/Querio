@@ -33,6 +33,8 @@ This (re)builds the Chroma collections in `vectorstore/` (gitignored — regener
 uvicorn querio_chatbot.app:app --reload --port 8001
 ```
 
+**Ports:** chatbot **8001** · backend bridge **8000** · frontend **5173**. Curl this service on **8001**; the browser should only talk to the backend on **8000**.
+
 The frontend does not call this service directly. The public request flow is:
 
 `frontend:5173` → `backend:8000` → `chatbot:8001`
@@ -75,7 +77,10 @@ python -m querio_chatbot.scripts.chat_cli
 
 - **Routing accuracy** — `python -m querio_chatbot.eval.routing_accuracy`
 - **D6 guidance-only boundary** — `tests/test_guidance_only_boundary.py` (skipped unless `GEMINI_API_KEY` is set)
+- **Hybrid retrieval** — `tests/test_hybrid_retrieval.py` covers BM25/RRF weighting and re-rank helpers without needing Gemini
 - Golden Q&A / RAGAS evaluation is not yet built
+
+Backend bridge proxy tests live in `backend/tests/` (not here).
 
 ## Layout
 
@@ -83,7 +88,7 @@ python -m querio_chatbot.scripts.chat_cli
 src/querio_chatbot/
 ├── config.py
 ├── ingestion/ingest.py
-├── retrieval/retriever.py
+├── retrieval/retriever.py   # hybrid semantic + BM25, weighted RRF, light re-rank
 ├── llm/gemini_client.py
 ├── router/router.py
 ├── eval/

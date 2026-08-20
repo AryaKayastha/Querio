@@ -49,6 +49,8 @@ Set `CHATBOT_API_URL=http://localhost:8001` in `backend/.env`.
 uvicorn querio_backend.bridge:app --reload --port 8000
 ```
 
+**Ports:** backend bridge **8000** · chatbot **8001** · frontend **5173**. Do not point the frontend at 8001.
+
 Start the chatbot on port `8001` first:
 
 ```powershell
@@ -89,6 +91,10 @@ curl -Method Post http://localhost:8000/chat -Headers @{"Content-Type"="applicat
 `GET /health` returns `status: "ok"` only when the chatbot is healthy; otherwise `status: "degraded"`.
 
 ## Tests
+
+Bridge/proxy tests live only under `backend/tests/` (this package).
+
+Chatbot/RAG tests live under `chatbot/tests/` — do not put them here.
 
 ```powershell
 pytest

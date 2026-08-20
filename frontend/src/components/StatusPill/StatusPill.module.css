@@ -12,3 +12,13 @@
   background-color: #e4efe9;
   color: #3e7a5a;
 }
+
+.pill.degraded {
+  background-color: #f7ecd9;
+  color: #9a6a1f;
+}
+
+.pill.offline {
+  background-color: #f3e4e4;
+  color: #8a3f3f;
+}

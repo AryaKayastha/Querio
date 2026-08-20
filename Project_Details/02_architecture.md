@@ -34,6 +34,7 @@
 - Telegram bot or web chat widget. Either is fine — pick based on what's easiest to test with real classmates in Phase 3.
 - Responsibilities: receive raw user message, display response (with citations), maintain conversation session/context if multi-turn is supported, forward message to the backend API.
 - Does **not** do any domain logic itself — it's a thin client.
+- Owner: Jahnavi (Software Developer) — `frontend/`.
 
 ### 2.2 Domain Classifier / Router
 - Input: raw student query (+ optional short conversation history for follow-ups).
@@ -50,7 +51,7 @@
   - **Clubs (D1), Certifications (D2), Sports/ECA (D3):** exploratory — weight semantic search higher, since students phrase these questions more loosely.
   - Formal Education (D5) is likely closer to policy-exact for syllabus/electives queries but exploratory for "which elective should I pick"-style questions — decide case by case during Phase 1 tuning.
 - After retrieval + re-ranking, the top-k chunks are passed to the LLM with the query, to generate a grounded answer with citations.
-- Owner: Arya (retrieval tuning), Jahnavi/Nancy (integration into backend).
+- Owner: Arya (retrieval tuning in `chatbot/`); Nancy integrates via the backend bridge.
 
 ### 2.4 Guidance-Only Boundary Logic (D4 & D6)
 - This is not just a prompt instruction — treat it as a first-class architectural component, since it's the single most mentor-scrutinized part of the system.
@@ -73,11 +74,11 @@
 ### 2.7 Admin Document Management
 - Lets a non-engineer admin add/update/remove documents per domain without code changes.
 - Minimum viable version: an admin panel or even a structured folder + re-index script, as long as it doesn't require an engineer to touch code for routine updates (e.g., updating the attendance policy PDF each semester).
-- Owner: Jahnavi (Software Developer).
+- Owner: Nancy (Software Developer).
 
 ### 2.8 Backend (FastAPI)
-- Exposes the API the chat interface calls; orchestrates: receive query → classify domain → retrieve → generate answer → log query → return response.
-- Clean separation between: routing service, retrieval service, logging service, admin service — keeps the team's parallel work (Arya on routing/retrieval, Jahnavi on backend/logging/admin, Nancy on chat/deployment) from stepping on each other.
+- Exposes the API the chat interface calls; currently a thin bridge to `chatbot/`, with query logging and admin still to land in this lane.
+- Clean separation between: routing/retrieval (`chatbot/`, Arya), backend bridge/logging/admin (`backend/`, Nancy), and chat UI (`frontend/`, Jahnavi) — keeps parallel work from stepping on each other.
 
 ## 3. Data Flow (per query)
 

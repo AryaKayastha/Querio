@@ -29,15 +29,26 @@ Current target: end-to-end for **D5 (Formal Education)** and **D6 (Leave Managem
 
 The `chatbot/` service exposes `POST /chat` (see [`chatbot/README.md`](chatbot/README.md)). The `backend/` bridge forwards frontend requests to that endpoint so each lane stays decoupled.
 
-Local request flow:
+### Ports (do not swap these)
+
+| Service | Port | Command entrypoint |
+|---|---|---|
+| Chatbot | **8001** | `uvicorn querio_chatbot.app:app --reload --port 8001` |
+| Backend bridge | **8000** | `uvicorn querio_backend.bridge:app --reload --port 8000` |
+| Frontend | **5173** | `npm run dev` (Vite default) |
+
+Request flow:
 
 `frontend:5173` → `backend:8000` → `chatbot:8001`
+
+- Frontend `VITE_API_BASE_URL` must point at the **backend** (`http://localhost:8000`), never the chatbot.
+- Backend `CHATBOT_API_URL` must point at the **chatbot** (`http://localhost:8001`).
 
 ## How to run locally
 
 1. Start the chatbot service from `chatbot/` on port **8001**.
 2. Start the backend bridge from `backend/` on port **8000**.
-3. Start the frontend from `frontend/`.
+3. Start the frontend from `frontend/` (port **5173**).
 4. Add source documents under `data/` and run ingestion from `chatbot/` whenever the corpus changes.
 
 See the folder-specific README files for exact commands and environment variables.
