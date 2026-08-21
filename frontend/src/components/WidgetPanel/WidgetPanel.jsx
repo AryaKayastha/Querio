@@ -29,6 +29,7 @@ const WidgetPanel = ({ onClose }) => {
         id: generateId("bot-message"),
         sender: "bot",
         text: botReply.reply,
+        sources: botReply.sources,
         chips: botReply.chips,
       };
 

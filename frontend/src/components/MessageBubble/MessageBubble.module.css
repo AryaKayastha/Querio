@@ -18,6 +18,7 @@
 .bubble {
   font-size: 13px;
   line-height: 1.55;
+  white-space: pre-wrap;
   padding: 11px 14px;
 }
 
@@ -31,4 +32,71 @@
   background-color: var(--color-ink);
   color: #ffffff;
   align-self: flex-end;
+}
+
+.citation {
+  color: var(--color-ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--color-accent);
+  text-underline-offset: 2px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.sourcesLabel {
+  color: var(--color-muted);
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+.sourceLink {
+  color: var(--color-ink);
+  background: var(--color-accent-soft);
+  border: 1px solid rgba(31, 48, 63, 0.12);
+  border-radius: 999px;
+  padding: 5px 9px;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sourceLink:hover,
+.sourceLink:focus-visible,
+.citation:hover,
+.citation:focus-visible {
+  color: var(--color-accent-dark, #a96f18);
+}
+
+.sourceDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid rgba(31, 48, 63, 0.14);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--color-ink);
+  font-size: 11px;
+}
+
+.sourceDetails button {
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
 }

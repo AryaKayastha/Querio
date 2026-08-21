@@ -1,23 +1,7 @@
-"""Chunk + embed each active domain's source documents into its Chroma collection.
+"""Chunk and embed active-domain source documents into Chroma collections.
 
-Supports two source formats in ../data/<domain>/:
-
-1. Curated markdown/text with frontmatter (see data/README.md):
-
-       ---
-       source_name: Attendance Policy 2025-26
-       source_type: policy_document
-       last_updated: 2026-01-15
-       owner_contact: Office of Academic Affairs
-       ---
-
-       # Heading
-       ... content ...
-
-2. Raw PDFs, as-gathered from departments (no metadata beyond the filename and
-   page number -- fine for citations, just less precise than curated markdown).
-   Scanned/image-only PDFs (no extractable text) are skipped with a warning;
-   they need OCR before they can be ingested.
+Supported formats are curated Markdown/text with frontmatter and raw PDFs.
+Scanned PDFs without extractable text are skipped with a warning.
 """
 
 import time
@@ -28,11 +12,13 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
-from querio_backend.config import DOMAINS, VECTORSTORE_DIR, Domain, collection_name
-from querio_backend.llm.gemini_client import get_embeddings
+from querio_chatbot.config import DOMAINS, VECTORSTORE_DIR, Domain, collection_name
+from querio_chatbot.llm.gemini_client import get_embeddings
 
-FRONTMATTER_FIELDS = ("source_name", "source_type", "last_updated", "owner_contact")
+FRONTMATTER_FIELDS = ("source_name", "source_type", "source_url", "last_updated", "owner_contact")
 HEADER_SPLIT_ON = [("#", "h1"), ("##", "h2"), ("###", "h3")]
+EMBED_BATCH_SIZE = 15
+EMBED_BATCH_DELAY_SECONDS = 10
 
 
 def _parse_frontmatter(raw_text: str) -> tuple[dict, str]:
@@ -41,6 +27,7 @@ def _parse_frontmatter(raw_text: str) -> tuple[dict, str]:
     parts = raw_text.split("---", 2)
     if len(parts) < 3:
         return {}, raw_text
+
     _, frontmatter_block, body = parts
     metadata = {}
     for line in frontmatter_block.strip().splitlines():
@@ -81,10 +68,10 @@ def _load_markdown_chunks(path: Path, header_splitter, chunk_splitter) -> list[D
 
 
 def _load_pdf_chunks(path: Path, chunk_splitter) -> list[Document]:
-    reader = pypdf.PdfReader(path)
+    reader = pypdf.PdfReader(path, strict=False)
     source_name = _clean_source_name(path)
-
     chunks = []
+
     for page_number, page in enumerate(reader.pages, start=1):
         page_text = (page.extract_text() or "").strip()
         if not page_text:
@@ -106,25 +93,31 @@ def _load_pdf_chunks(path: Path, chunk_splitter) -> list[Document]:
     return chunks
 
 
+def _source_paths(data_dir: Path) -> list[Path]:
+    return sorted(
+        path
+        for path in data_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in {".md", ".txt", ".pdf"}
+    )
+
+
 def load_domain_chunks(domain: Domain) -> list[Document]:
     header_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=HEADER_SPLIT_ON)
     chunk_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-
     documents = []
-    for path in sorted(domain.data_dir.glob("*.md")) + sorted(domain.data_dir.glob("*.txt")):
-        documents.extend(_load_markdown_chunks(path, header_splitter, chunk_splitter))
-    for path in sorted(domain.data_dir.glob("*.pdf")):
-        documents.extend(_load_pdf_chunks(path, chunk_splitter))
+
+    for path in _source_paths(domain.data_dir):
+        try:
+            if path.suffix.lower() == ".pdf":
+                documents.extend(_load_pdf_chunks(path, chunk_splitter))
+            else:
+                documents.extend(_load_markdown_chunks(path, header_splitter, chunk_splitter))
+        except Exception as exc:
+            print(f"  [!] Could not ingest {path.name}: {exc}")
 
     for chunk in documents:
         chunk.metadata["domain"] = domain.code
     return documents
-
-
-# Gemini's free-tier embedding quota is rate-limited per minute, not just per day --
-# batch + pace requests to stay under it rather than firing hundreds of embed calls at once.
-EMBED_BATCH_SIZE = 15
-EMBED_BATCH_DELAY_SECONDS = 10
 
 
 def ingest_domain(domain: Domain) -> int:
@@ -146,7 +139,7 @@ def ingest_domain(domain: Domain) -> int:
         if done < len(chunks):
             time.sleep(EMBED_BATCH_DELAY_SECONDS)
 
-    print(f"[{domain.code}] ingested {len(chunks)} chunks from {len(list(domain.data_dir.glob('*')))} files")
+    print(f"[{domain.code}] ingested {len(chunks)} chunks from {len(_source_paths(domain.data_dir))} files")
     return len(chunks)
 
 

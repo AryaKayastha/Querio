@@ -8,23 +8,33 @@ const CONNECTIVITY_REPLY =
 
 const EMPTY_QUERY_REPLY = "Please type a question before sending.";
 
-const normalizeSourcesToChips = (sources) => {
+const normalizeSources = (sources) => {
   if (!Array.isArray(sources)) {
     return [];
   }
 
-  const uniqueSourceNames = new Set();
+  const uniqueSources = new Map();
 
   sources.forEach((source) => {
     const sourceName = source && typeof source.source_name === "string" ? source.source_name.trim() : "";
 
     if (sourceName.length > 0) {
-      uniqueSourceNames.add(sourceName);
+      const sourceSection = typeof source.source_section === "string" ? source.source_section.trim() : "";
+      const sourceUrl = typeof source.source_url === "string" ? source.source_url.trim() : "";
+      const key = `${sourceName}|${sourceSection}`;
+      uniqueSources.set(key, {
+        source_name: sourceName,
+        source_section: sourceSection,
+        source_url: sourceUrl,
+      });
     }
   });
 
-  return [...uniqueSourceNames];
+  return [...uniqueSources.values()];
 };
+
+const sourcesToChips = (sources) =>
+  [...new Set(sources.map((source) => source.source_name).filter(Boolean))];
 
 export const getBotReply = async (messageText) => {
   try {
@@ -34,13 +44,15 @@ export const getBotReply = async (messageText) => {
       ? response.answer
       : DEFAULT_REPLY;
 
-    const chips = normalizeSourcesToChips(response.sources);
+    const sources = normalizeSources(response.sources);
+    const chips = sourcesToChips(sources);
 
     const confidenceValue = Number(response.confidence);
     const confidence = Number.isFinite(confidenceValue) ? confidenceValue : 0;
 
     return {
       reply,
+      sources,
       chips,
       meta: {
         domain: typeof response.domain === "string" ? response.domain : "",
@@ -52,6 +64,7 @@ export const getBotReply = async (messageText) => {
     if (error && error.type === "empty_query") {
       return {
         reply: EMPTY_QUERY_REPLY,
+        sources: [],
         chips: [],
       };
     }
@@ -59,12 +72,22 @@ export const getBotReply = async (messageText) => {
     if (error && (error.type === "timeout" || error.type === "network_error")) {
       return {
         reply: CONNECTIVITY_REPLY,
+        sources: [],
+        chips: [],
+      };
+    }
+
+    if (error && error.type === "http_error") {
+      return {
+        reply: "The Querio backend is online, but the chatbot service could not answer this request. Please try again shortly.",
+        sources: [],
         chips: [],
       };
     }
 
     return {
       reply: DEFAULT_REPLY,
+      sources: [],
       chips: [],
     };
   }

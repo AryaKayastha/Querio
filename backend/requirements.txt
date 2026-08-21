@@ -1,12 +1,6 @@
-langchain
-langchain-google-genai
-langchain-chroma
-langchain-text-splitters
-langgraph
-chromadb
-pypdf
 fastapi
 uvicorn[standard]
 pydantic
 python-dotenv
+httpx
 pytest

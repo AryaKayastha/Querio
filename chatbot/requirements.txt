@@ -1,0 +1,14 @@
+langchain
+langchain-google-genai
+langchain-chroma
+langchain-text-splitters
+langgraph
+chromadb
+rank-bm25
+ragas
+pypdf
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+pytest

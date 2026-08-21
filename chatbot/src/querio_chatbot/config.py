@@ -4,11 +4,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-CHATBOT_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(dotenv_path=CHATBOT_ROOT / ".env", override=True)
+load_dotenv()
 
+CHATBOT_ROOT = Path(__file__).resolve().parents[2]
 DATA_ROOT = CHATBOT_ROOT.parent / "data"
 VECTORSTORE_DIR = CHATBOT_ROOT / "vectorstore"
+
+
+def collection_name(domain_code: str) -> str:
+    """Return a stable Chroma collection name for a domain."""
+    return f"domain_{domain_code}"
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_CHAT_MODEL = os.environ.get("GEMINI_CHAT_MODEL", "gemini-flash-lite-latest")
@@ -50,11 +55,6 @@ INACTIVE_DOMAIN_TOPICS = (
     "co-curricular activities/clubs, certifications, extra-curricular activities/sports, "
     "and career/internship/placement (including NOC)"
 )
-
-def collection_name(domain_code: str) -> str:
-    # Chroma requires collection names >= 3 chars; domain codes ("D5") are too short on their own.
-    return f"domain_{domain_code}"
-
 
 # Below this, the router treats the query as ambiguous and asks the student to
 # clarify instead of committing to a domain -- see 02_architecture.md §2.2.

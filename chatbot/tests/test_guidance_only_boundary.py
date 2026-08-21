@@ -11,7 +11,7 @@ import os
 import pytest
 from langchain_core.documents import Document
 
-from querio_backend.router.router import generate_node
+from querio_chatbot.router.router import generate_node
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("GEMINI_API_KEY"),

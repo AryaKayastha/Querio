@@ -11,6 +11,7 @@ venv/
 
 # Chroma persistence (regenerate via ingestion, don't commit embeddings)
 chatbot/vectorstore/
+backend/vectorstore/
 
 # Node (frontend)
 node_modules/

@@ -3,7 +3,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 export const MAX_QUERY_LENGTH = 2000; // Client-side safeguard until a server-side limit is enforced.
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/$/u, "");
 
 export class BackendApiError extends Error {
   constructor(type, message, options = {}) {
@@ -97,6 +97,11 @@ export const sendChatMessage = async (query) => {
 };
 
 export const checkHealth = async () => {
+  const status = await getHealthStatus();
+  return status === "online";
+};
+
+export const getHealthStatus = async () => {
   const { controller, timeoutId } = createTimeoutSignal(REQUEST_TIMEOUT_MS);
 
   try {
@@ -106,13 +111,19 @@ export const checkHealth = async () => {
     });
 
     if (!response.ok) {
-      return false;
+      return "offline";
     }
 
     const body = await response.json();
-    return body && body.status === "ok";
+    if (body && body.status === "ok") {
+      return "online";
+    }
+    if (body && body.status === "degraded") {
+      return "degraded";
+    }
+    return "offline";
   } catch {
-    return false;
+    return "offline";
   } finally {
     window.clearTimeout(timeoutId);
   }

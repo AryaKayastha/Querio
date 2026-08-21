@@ -97,7 +97,7 @@ owner_contact   text
 active          boolean        -- lets admin retire a doc without deleting history
 ```
 
-This is what the admin panel (Jahnavi's responsibility) reads/writes when adding, updating, or removing documents per domain — the requirement is that this happens without engineering involvement, so the schema should be simple enough to drive a basic CRUD UI.
+This is what the admin panel (Nancy's responsibility) reads/writes when adding, updating, or removing documents per domain — the requirement is that this happens without engineering involvement, so the schema should be simple enough to drive a basic CRUD UI.
 
 ## 6. Data Ownership & Freshness
 

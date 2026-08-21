@@ -1,54 +1,39 @@
-# Frontend
+# Frontend (Jahnavi)
 
-Querio's frontend is a Vite + React chat UI that talks to the backend API.
+Chat UI / web widget for Querio. Talks only to the **backend bridge** — never call the chatbot service directly from the browser.
 
-## Folder structure
+## Ports
+
+| Service | Port |
+|---|---|
+| Frontend (this app) | **5173** |
+| Backend bridge | **8000** ← `VITE_API_BASE_URL` |
+| Chatbot | **8001** (backend-only; not used by the UI) |
+
+Flow: `frontend:5173` → `backend:8000` → `chatbot:8001`
+
+## Routes
+
+| Path | Page |
+|---|---|
+| `/` | Landing |
+| `/chat` | Full chat experience |
+| `/widget` | Embeddable widget demo |
+
+## Layout
 
 ```text
-frontend/
-├── README.md
-├── .env
-├── .env.example
-├── index.html
-├── package.json
-├── vite.config.js
-├── public/
-└── src/
-	├── App.jsx
-	├── api/
-	│   └── backend.js
-	├── assets/
-	│   └── icons/
-	├── components/
-	│   ├── Avatar/
-	│   ├── ChatHeader/
-	│   ├── ChatInput/
-	│   ├── ChatWindow/
-	│   ├── ExamplePromptCard/
-	│   ├── MessageBubble/
-	│   ├── QuickReplyChips/
-	│   ├── RecentChatItem/
-	│   ├── Sidebar/
-	│   ├── StatusPill/
-	│   ├── TypingIndicator/
-	│   ├── WidgetBubble/
-	│   └── WidgetPanel/
-	├── data/
-	├── pages/
-	│   ├── ChatPage/
-	│   ├── LandingPage/
-	│   └── WidgetDemoPage/
-	└── utils/
-		├── generateId.js
-		└── getBotReply.js
+frontend/src/
+├── api/backend.js          # POST /chat + GET /health against backend:8000
+├── components/             # Chat UI building blocks (header, sidebar, bubbles, widget)
+├── pages/
+│   ├── LandingPage/
+│   ├── ChatPage/
+│   └── WidgetDemoPage/
+├── utils/getBotReply.js    # Normalizes answers, sources, and chips
+├── App.jsx                 # React Router routes
+└── main.jsx
 ```
-
-## What it does
-
-- Renders the main chat experience
-- Sends messages to the backend API
-- Displays chat messages, quick replies, and typing indicators
-- Provides the widget demo and landing pages
 
 ## Setup
 
@@ -56,35 +41,15 @@ frontend/
 cd frontend
 npm install
 copy .env.example .env
-```
-
-Edit `frontend/.env` if your backend runs on a different address.
-
-## Run locally
-
-```powershell
 npm run dev
 ```
 
-Open the printed Vite URL in your browser, usually:
+`VITE_API_BASE_URL` defaults to `http://localhost:8000`.
 
-```text
-http://localhost:5173
-```
+## Local stack order
 
-## Build and preview
+1. Start `chatbot` on **8001**
+2. Start `backend` bridge on **8000**
+3. Start this app on **5173** (`npm run dev`)
 
-```powershell
-npm run build
-npm run preview
-```
-
-## Environment variables
-
-- `VITE_API_BASE_URL` — backend base URL, defaults to `http://localhost:8000`
-
-## Notes
-
-- The chat input is single-line.
-- Source chips currently re-submit their label as a new message when clicked.
-- The frontend does not sanitize rendered message text again; React escaping is already sufficient.
+The chat header status pill polls `GET /health` on the backend and shows online/offline accordingly.

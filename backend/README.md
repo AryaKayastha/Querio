@@ -1,69 +1,34 @@
-# Backend
+# Backend (Nancy)
 
-Querio's backend contains the FastAPI service, routing graph, retrieval pipeline, ingestion scripts, and evaluation harness.
+Thin FastAPI bridge that is the public API boundary for the frontend. It forwards chat requests to the standalone `chatbot/` service, which owns classification, retrieval, ingestion, and answer generation.
 
-## Folder structure
+Future work for this lane: query logging pipeline, admin document-management panel, and PostgreSQL schema. See [`Project_Details/03_data_requirements.md`](../Project_Details/03_data_requirements.md) §5 for the suggested `query_log` and `document` table schemas.
+
+## Layout
 
 ```text
 backend/
 ├── README.md
-├── .env
 ├── .env.example
 ├── pyproject.toml
 ├── requirements.txt
 ├── src/
 │   └── querio_backend/
 │       ├── __init__.py
-│       ├── app.py
-│       ├── config.py
-│       ├── eval/
-│       │   ├── __init__.py
-│       │   ├── routing_accuracy.py
-│       │   └── routing_test_set.py
-│       ├── ingestion/
-│       │   ├── __init__.py
-│       │   └── ingest.py
-│       ├── llm/
-│       │   ├── __init__.py
-│       │   └── gemini_client.py
-│       ├── retrieval/
-│       │   ├── __init__.py
-│       │   └── retriever.py
-│       ├── router/
-│       │   ├── __init__.py
-│       │   └── router.py
-│       └── scripts/
-│           ├── __init__.py
-│           └── chat_cli.py
+│       ├── bridge.py
+│       └── bridge_config.py
 └── tests/
-		├── fixtures/
-		│   └── sample_doc.md
-		├── test_guidance_only_boundary.py
-		├── test_ingestion.py
-		└── test_router_fallback.py
+    └── test_chatbot_proxy.py
 ```
 
 ## What it does
 
 - Exposes `POST /chat` and `GET /health`
-- Routes questions into D5 or D6 when appropriate
-- Retrieves supporting passages from Chroma
-- Generates grounded answers with Gemini
-- Includes a guidance-only boundary for domains that must never perform transactions
+- Forwards chat requests to the chatbot service
+- Preserves the chatbot response contract for the frontend
+- Reports a degraded health status when the chatbot is unavailable
 
-## Current domain coverage
-
-Active domains:
-
-- D5: Formal Education
-- D6: Leave Management & Attendance
-
-Inactive but reserved for future data:
-
-- D1: Clubs
-- D2: Certifications
-- D3: Extra-curricular activities and sports
-- D4: Career, internship, placement, and NOC
+The backend does **not** run the router, retrieval, ingestion, or Gemini calls. Those belong in `chatbot/`.
 
 ## Setup
 
@@ -76,30 +41,24 @@ pip install -e .
 copy .env.example .env
 ```
 
-Set `GEMINI_API_KEY` in `backend/.env` before running the service.
-
-## Prepare the vector store
-
-Put source documents in:
-
-- `../data/D5_formal_education/`
-- `../data/D6_leave_attendance/`
-
-Then ingest them:
-
-```powershell
-python -m querio_backend.ingestion.ingest
-```
-
-This rebuilds the Chroma vector store in `vectorstore/`.
+Set `CHATBOT_API_URL=http://localhost:8001` in `backend/.env`.
 
 ## Run the service
 
 ```powershell
-uvicorn querio_backend.app:app --reload --port 8000
+uvicorn querio_backend.bridge:app --reload --port 8000
 ```
 
-Test it with:
+**Ports:** backend bridge **8000** · chatbot **8001** · frontend **5173**. Do not point the frontend at 8001.
+
+Start the chatbot on port `8001` first:
+
+```powershell
+cd ..\chatbot
+uvicorn querio_chatbot.app:app --reload --port 8001
+```
+
+Request flow: `frontend:5173` → `backend:8000` → `chatbot:8001`
 
 ```powershell
 curl -Method Post http://localhost:8000/chat -Headers @{"Content-Type"="application/json"} -Body '{"query":"How many electives can I choose this semester?"}'
@@ -109,50 +68,33 @@ curl -Method Post http://localhost:8000/chat -Headers @{"Content-Type"="applicat
 
 `POST /chat`
 
-Request body:
-
 ```json
 { "query": "string" }
 ```
 
-Response body:
-
 ```json
 {
-	"answer": "string",
-	"domain": "D5 | D6 | UNROUTED",
-	"confidence": 0.92,
-	"sources": [
-		{
-			"source_name": "string",
-			"source_section": "string"
-		}
-	],
-	"guidance_only": false
+  "answer": "string",
+  "domain": "D5 | D6 | UNROUTED",
+  "confidence": 0.92,
+  "sources": [
+    {
+      "source_name": "string",
+      "source_section": "string",
+      "source_url": "https://example.edu/source"
+    }
+  ],
+  "guidance_only": false
 }
 ```
 
-`GET /health`
+`GET /health` returns `status: "ok"` only when the chatbot is healthy; otherwise `status: "degraded"`.
 
-```json
-{ "status": "ok" }
-```
+## Tests
 
-## Useful commands
+Bridge/proxy tests live only under `backend/tests/` (this package).
 
-Run the CLI:
-
-```powershell
-python -m querio_backend.scripts.chat_cli
-```
-
-Run the routing evaluation:
-
-```powershell
-python -m querio_backend.eval.routing_accuracy
-```
-
-Run tests:
+Chatbot/RAG tests live under `chatbot/tests/` — do not put them here.
 
 ```powershell
 pytest
