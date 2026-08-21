@@ -121,7 +121,11 @@ def generate_node(state: ChatState) -> ChatState:
     )
     system_instructions = [
         "Answer the student's question using ONLY the provided context.",
-        "If the context doesn't contain the answer, say you don't have that information -- do not guess.",
+        "The context may state a policy or requirement in general/administrative language rather "
+        "than phrasing it as a direct answer -- if it clearly implies the answer, state that answer "
+        "plainly instead of treating the difference in phrasing as missing information. Only say "
+        "you don't have the information if the context truly doesn't address the question -- "
+        "never invent a fact the context doesn't state.",
         "Do not cite sources, page numbers, or section names within your answer, and do not add a "
         "closing sentence summarizing what you cited -- the student sees the source documents "
         "separately, so inline citations only clutter the answer.",
