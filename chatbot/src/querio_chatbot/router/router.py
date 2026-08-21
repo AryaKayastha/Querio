@@ -64,9 +64,13 @@ def _domain_name(code: Optional[str]) -> str:
 
 def _build_clarifying_message(state: ChatState) -> str:
     alternative = state.get("alternative_domain")
-    if alternative and alternative != state["domain"] and alternative in DOMAINS:
+    domain = state["domain"]
+    # Both sides must be real, known domains -- "UNROUTED" (the primary guess or the
+    # alternative) has no friendly name and would otherwise leak into the message
+    # verbatim, e.g. "...whether your question is about UNROUTED or Formal Education".
+    if alternative and alternative != domain and alternative in DOMAINS and domain in DOMAINS:
         return (
-            f"I'm not fully sure whether your question is about {_domain_name(state['domain'])} "
+            f"I'm not fully sure whether your question is about {_domain_name(domain)} "
             f"or {_domain_name(alternative)}. Could you clarify which one you mean?"
         )
     return "I'm not fully sure which topic your question is about. Could you rephrase it with a bit more detail?"
