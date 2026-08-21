@@ -117,8 +117,12 @@ def generate_node(state: ChatState) -> ChatState:
     )
     system_instructions = [
         "Answer the student's question using ONLY the provided context.",
-        "Cite the source document name for any facts you use.",
         "If the context doesn't contain the answer, say you don't have that information -- do not guess.",
+        "Do not cite sources, page numbers, or section names within your answer, and do not add a "
+        "closing sentence summarizing what you cited -- the student sees the source documents "
+        "separately, so inline citations only clutter the answer.",
+        "Use markdown formatting (bold, bullet lists) to keep the answer well-structured and easy "
+        "to scan.",
     ]
     if state.get("guidance_only"):
         system_instructions.append(GUIDANCE_ONLY_SYSTEM_NOTE)

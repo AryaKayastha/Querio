@@ -27,9 +27,22 @@ KEYWORD_WEIGHT_BY_DOMAIN: dict[str, float] = {
 
 _TOKEN_RE = re.compile(r"[a-z0-9%]+(?:'[a-z]+)?", re.IGNORECASE)
 
+# Excluded only from the rerank overlap calculation below (not from BM25 indexing/scoring,
+# where corpus-wide IDF already handles common words appropriately). Without this, a query
+# like "What is syllabus of first year" scores 4/6 "overlap" against any page containing
+# just "syllabus", "year", "of", and "is" -- letting an unrelated page (e.g. a different
+# year's syllabus) out-rank pages that are actually about the right year.
+_STOPWORDS = frozenset(
+    {"a", "an", "and", "are", "do", "does", "for", "how", "i", "in", "is", "my", "of", "or", "the", "to", "what"}
+)
+
 
 def _tokenize(text: str) -> list[str]:
     return [token.lower() for token in _TOKEN_RE.findall(text or "")]
+
+
+def _significant_tokens(text: str) -> set[str]:
+    return {token for token in _tokenize(text) if token not in _STOPWORDS}
 
 
 def _keyword_weight(domain_code: str) -> float:
@@ -122,18 +135,26 @@ def _weighted_rrf(
     )
 
 
+# Proportional, not additive: RRF scores sit in a narrow ~0.006-0.015 band (1/(RRF_K+rank)
+# barely moves across ranks), so a flat "+0.15 * overlap" boost used to dwarf that entire
+# range and let word-overlap alone override the fusion ranking -- e.g. promoting an
+# unrelated page from rank 16 to rank 4 just for sharing "syllabus"/"year" with the query.
+# Scaling by each doc's own base_score keeps this a tie-breaker among close RRF scores
+# instead of a ranking override.
+RERANK_BOOST_WEIGHT = 0.5
+
+
 def _rerank(query: str, ranked: list[tuple[Document, float]]) -> list[Document]:
-    """Light second-stage re-rank: boost chunks that share more query tokens."""
-    query_tokens = set(_tokenize(query))
+    """Light second-stage re-rank: boost chunks that share more (non-stopword) query tokens."""
+    query_tokens = _significant_tokens(query)
     if not query_tokens:
         return [doc for doc, _ in ranked]
 
     rescored: list[tuple[Document, float]] = []
     for doc, base_score in ranked:
-        doc_tokens = set(_tokenize(doc.page_content))
+        doc_tokens = _significant_tokens(doc.page_content)
         overlap = len(query_tokens & doc_tokens) / max(len(query_tokens), 1)
-        # Small additive boost so RRF order still dominates unless overlap is strong.
-        rescored.append((doc, base_score + 0.15 * overlap))
+        rescored.append((doc, base_score * (1 + RERANK_BOOST_WEIGHT * overlap)))
 
     rescored.sort(key=lambda item: item[1], reverse=True)
     return [doc for doc, _ in rescored]

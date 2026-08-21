@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import Avatar from "../Avatar/Avatar.jsx";
 import QuickReplyChips from "../QuickReplyChips/QuickReplyChips.jsx";
 import styles from "./MessageBubble.module.css";
 
+// Matches inline citation markers the model sometimes emits after individual facts, e.g.
+// "...late fee of Rs. 50/- per day. (Source: FeesStructure — Page 1)" or "[FeesStructure — Page 1]".
 const CITATION_PATTERN = /\[([^\]]+)\]|\(([^()]+?)\)/gu;
 
 const normalizeCitationText = (value) => value
@@ -26,65 +29,54 @@ const findSource = (citationText, sources) => {
   });
 };
 
+// The model cites sources inline after nearly every sentence. Repeating that on every
+// line clutters the answer -- strip recognized inline citations from the rendered text
+// and rely on the deduplicated Sources footer below for tracing facts back to a source.
+const stripCitations = (text, sources) => {
+  let result = "";
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(CITATION_PATTERN)) {
+    const citationText = match[1] || match[2];
+    if (!findSource(citationText, sources)) {
+      continue;
+    }
+    result += text.slice(lastIndex, match.index);
+    lastIndex = match.index + match[0].length;
+  }
+  result += text.slice(lastIndex);
+
+  return result
+    .replace(/[ \t]+([.,;:!?])/gu, "$1") // drop the space left behind before punctuation
+    .replace(/[ \t]{2,}/gu, " ")
+    .replace(/\n[ \t]+/gu, "\n")
+    .replace(/[ \t]+\n/gu, "\n")
+    .trim();
+};
+
+const dedupeSources = (sources) => {
+  const seen = new Set();
+  return sources.filter((source) => {
+    const key = `${source.source_name}|${source.source_section}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+};
+
 const MessageBubble = ({ message, onChipSelect }) => {
   const isBot = message.sender === "bot";
-  const sources = Array.isArray(message.sources) ? message.sources : [];
+  const rawSources = Array.isArray(message.sources) ? message.sources : [];
+  const sources = useMemo(() => dedupeSources(rawSources), [rawSources]);
   const hasChips = Boolean(message.chips && message.chips.length > 0);
   const [selectedSource, setSelectedSource] = useState(null);
 
-  const renderText = () => {
-    if (!isBot || sources.length === 0) {
-      return message.text;
-    }
-
-    const parts = [];
-    let lastIndex = 0;
-
-    for (const match of message.text.matchAll(CITATION_PATTERN)) {
-      const citationText = match[1] || match[2];
-      const source = findSource(citationText, sources);
-      if (!source) {
-        continue;
-      }
-
-      parts.push(message.text.slice(lastIndex, match.index));
-      const label = citationText;
-      if (isSafeUrl(source.source_url)) {
-        parts.push(
-          <a
-            key={`${label}-${match.index}`}
-            className={styles.citation}
-            href={source.source_url}
-            target="_blank"
-            rel="noreferrer"
-            title={`Open ${source.source_name}`}
-          >
-            [{label}]
-          </a>
-        );
-      } else {
-        parts.push(
-          <button
-            key={`${label}-${match.index}`}
-            type="button"
-            className={styles.citation}
-            onClick={() => setSelectedSource(source)}
-            title="View source details"
-          >
-            [{label}]
-          </button>
-        );
-      }
-      lastIndex = match.index + match[0].length;
-    }
-
-    if (parts.length === 0) {
-      return message.text;
-    }
-
-    parts.push(message.text.slice(lastIndex));
-    return parts;
-  };
+  const displayText = useMemo(
+    () => (isBot && sources.length > 0 ? stripCitations(message.text, sources) : message.text),
+    [isBot, message.text, sources]
+  );
 
   return (
     <div className={`${styles.messageRow} ${isBot ? "" : styles.user}`}>
@@ -92,7 +84,7 @@ const MessageBubble = ({ message, onChipSelect }) => {
 
       <div className={styles.bubbleColumn}>
         <div className={`${styles.bubble} ${isBot ? styles.bot : styles.user}`}>
-          {renderText()}
+          {isBot ? <ReactMarkdown>{displayText}</ReactMarkdown> : message.text}
         </div>
 
         {isBot && sources.length > 0 && (

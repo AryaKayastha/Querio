@@ -35,6 +35,36 @@ def test_weighted_rrf_prefers_keyword_hits_when_keyword_weight_is_high():
     assert fused[0][0].metadata["source_name"] == "Shared"
 
 
+def test_rerank_does_not_let_stopword_overlap_beat_a_better_ranked_doc():
+    """Regression test: a query like "What is syllabus of first year" shares three
+    stopwords ("what", "is", "of") plus "syllabus" with ANY page that happens to say
+    "the syllabus is ... for your review", even if that page has nothing to do with
+    "first year" specifically. A flat additive rerank boost (the old behavior) let
+    that raw overlap alone flip a poorly-fused, off-topic page ahead of a well-fused,
+    on-topic one. Filtering stopwords from the overlap calc and scaling the boost by
+    each doc's own base score (instead of adding a fixed amount) fixes this.
+    """
+    ranked = [
+        (
+            Document(
+                page_content="first year formal education programme",
+                metadata={"source_name": "on-topic"},
+            ),
+            0.0090,
+        ),
+        (
+            Document(
+                page_content="what is the syllabus of the course for your review",
+                metadata={"source_name": "off-topic-stopword-match"},
+            ),
+            0.0070,
+        ),
+    ]
+
+    reranked = _rerank("What is syllabus of first year", ranked)
+    assert reranked[0].metadata["source_name"] == "on-topic"
+
+
 def test_rerank_boosts_strong_term_overlap():
     ranked = [
         (
