@@ -18,7 +18,6 @@
 .bubble {
   font-size: 13px;
   line-height: 1.55;
-  white-space: pre-wrap;
   padding: 11px 14px;
 }
 
@@ -32,19 +31,46 @@
   background-color: var(--color-ink);
   color: #ffffff;
   align-self: flex-end;
+  white-space: pre-wrap;
 }
 
-.citation {
-  color: var(--color-ink);
+/* Markdown-rendered answer body (bot bubble only -- user text stays plain). */
+.bubble.bot :global(p) {
+  margin: 0 0 8px;
+}
+
+.bubble.bot :global(p:last-child) {
+  margin-bottom: 0;
+}
+
+.bubble.bot :global(ul),
+.bubble.bot :global(ol) {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.bubble.bot :global(li) {
+  margin-bottom: 4px;
+}
+
+.bubble.bot :global(li:last-child) {
+  margin-bottom: 0;
+}
+
+.bubble.bot :global(li > ul),
+.bubble.bot :global(li > ol) {
+  margin-top: 4px;
+}
+
+.bubble.bot :global(strong) {
   font-weight: 700;
-  text-decoration: underline;
-  text-decoration-color: var(--color-accent);
-  text-underline-offset: 2px;
-  background: none;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
+}
+
+.bubble.bot :global(code) {
+  font-size: 12px;
+  background: rgba(31, 48, 63, 0.08);
+  border-radius: 4px;
+  padding: 1px 4px;
 }
 
 .sources {
@@ -73,9 +99,7 @@
 }
 
 .sourceLink:hover,
-.sourceLink:focus-visible,
-.citation:hover,
-.citation:focus-visible {
+.sourceLink:focus-visible {
   color: var(--color-accent-dark, #a96f18);
 }
 

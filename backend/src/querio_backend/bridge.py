@@ -7,9 +7,12 @@ from querio_backend.bridge_config import CHATBOT_API_URL, CHATBOT_TIMEOUT_SECOND
 
 app = FastAPI(title="Querio Backend Bridge")
 
+# Vite falls back to the next free port (5174, 5175, ...) when 5173 is already taken by
+# another project's dev server on the same machine -- allow a small range of dev ports
+# rather than breaking whenever that happens.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[f"http://localhost:{port}" for port in range(5173, 5178)],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
