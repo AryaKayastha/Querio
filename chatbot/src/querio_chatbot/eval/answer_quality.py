@@ -8,11 +8,45 @@ optional RAGAS dependencies from requirements.txt. Scores are printed per domain
 so D5 and D6 are not hidden by a pooled average.
 """
 
+import sys
+import types
 from collections import defaultdict
 
 from querio_chatbot.eval.golden_qa import GOLDEN_QA_SET, validate_golden_qa
 from querio_chatbot.llm.gemini_client import get_chat_model, get_embeddings
 from querio_chatbot.router.router import answer_query
+
+
+class _VertexAIUnavailable:
+    """Placeholder for a VertexAI integration this project never uses."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        raise RuntimeError(
+            "VertexAI is not available -- this project evaluates with Gemini only."
+        )
+
+
+def _patch_ragas_vertexai_import() -> None:
+    """ragas 0.4.x unconditionally imports langchain_community's VertexAI integration
+    (ragas/llms/base.py). langchain_community is being sunset upstream and no longer
+    ships that integration at all, so the plain `import ragas` fails before we ever
+    get a chance to use it -- even though we only ever evaluate with Gemini. Since we
+    never construct a VertexAI model, a harmless placeholder is enough to satisfy the
+    import; nothing about our actual evaluation path touches these symbols.
+    """
+    module_name = "langchain_community.chat_models.vertexai"
+    if module_name not in sys.modules:
+        try:
+            __import__(module_name)
+        except ModuleNotFoundError:
+            shim = types.ModuleType(module_name)
+            shim.ChatVertexAI = _VertexAIUnavailable
+            sys.modules[module_name] = shim
+
+    import langchain_community.llms as community_llms
+
+    if not hasattr(community_llms, "VertexAI"):
+        community_llms.VertexAI = _VertexAIUnavailable
 
 
 def _build_rows() -> list[dict]:
@@ -39,6 +73,7 @@ def run() -> dict[str, dict[str, float]]:
     """Evaluate and print faithfulness, relevance, and context metrics by domain."""
     validate_golden_qa()
     try:
+        _patch_ragas_vertexai_import()
         from datasets import Dataset
         from ragas import evaluate
         from ragas.embeddings import LangchainEmbeddingsWrapper
