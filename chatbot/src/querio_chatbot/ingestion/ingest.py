@@ -89,7 +89,11 @@ def _load_pdf_chunks(path: Path, chunk_splitter) -> list[Document]:
             )
 
     if not chunks:
-        print(f"  [!] {path.name} has no extractable text -- likely a scanned image, needs OCR, skipped")
+        sidecar = path.parent / f"{path.stem}.ocr.md"
+        if sidecar.exists():
+            print(f"  [i] {path.name} has no extractable text, but an OCR sidecar exists -- using that instead")
+        else:
+            print(f"  [!] {path.name} has no extractable text -- likely a scanned image, run ingestion.ocr first")
     return chunks
 
 

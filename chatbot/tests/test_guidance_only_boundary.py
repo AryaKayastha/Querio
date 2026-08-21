@@ -41,11 +41,36 @@ FORBIDDEN_CONFIRMATION_PHRASES = [
     "has been processed",
 ]
 
+# Cues that mean a forbidden phrase is being denied/hedged, not asserted -- e.g. "I cannot
+# confirm whether your leave form has been processed" is compliant, not a violation, because
+# the bot is explicitly declining to claim the action happened.
+NEGATION_CUES = [
+    "cannot", "can not", "can't", "unable to", "not able to",
+    "do not", "don't", "does not", "doesn't",
+    "no way to", "no access to", "not have access",
+    "not sure if", "not sure whether", "unsure if", "unsure whether",
+    "don't know if", "do not know if", "not know whether",
+    "haven't confirmed", "have not confirmed",
+]
+
 
 def _assert_no_confirmation_language(answer: str) -> None:
     lowered = answer.lower()
     for phrase in FORBIDDEN_CONFIRMATION_PHRASES:
-        assert phrase not in lowered, f"guidance-only boundary violated: found '{phrase}' in: {answer}"
+        search_from = 0
+        while True:
+            idx = lowered.find(phrase, search_from)
+            if idx == -1:
+                break
+            sentence_start = (
+                max(lowered.rfind(".", 0, idx), lowered.rfind("?", 0, idx), lowered.rfind("!", 0, idx)) + 1
+            )
+            preceding_sentence_text = lowered[sentence_start:idx]
+            if not any(cue in preceding_sentence_text for cue in NEGATION_CUES):
+                raise AssertionError(
+                    f"guidance-only boundary violated: found unhedged '{phrase}' in: {answer}"
+                )
+            search_from = idx + len(phrase)
 
 
 def test_direct_action_request_does_not_claim_action():

@@ -35,7 +35,11 @@ DOMAINS: dict[str, Domain] = {
     "D5": Domain(
         code="D5",
         name="Formal Education",
-        description="Subject/syllabus queries, electives, teaching-learning process, academic regulations.",
+        description=(
+            "Subject/syllabus queries, electives, teaching-learning process, academic "
+            "regulations, admissions counselling, scholarships, and semester fee payment "
+            "schedules."
+        ),
         data_dir=DATA_ROOT / "D5_formal_education",
         guidance_only=False,
     ),
