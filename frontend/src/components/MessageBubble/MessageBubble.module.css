@@ -66,6 +66,23 @@
   font-weight: 700;
 }
 
+.bubble.bot :global(h1),
+.bubble.bot :global(h2),
+.bubble.bot :global(h3),
+.bubble.bot :global(h4) {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 10px 0 4px;
+}
+
+.bubble.bot :global(h1:first-child),
+.bubble.bot :global(h2:first-child),
+.bubble.bot :global(h3:first-child),
+.bubble.bot :global(h4:first-child) {
+  margin-top: 0;
+}
+
 .bubble.bot :global(code) {
   font-size: 12px;
   background: rgba(31, 48, 63, 0.08);

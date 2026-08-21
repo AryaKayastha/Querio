@@ -29,6 +29,15 @@ def test_build_clarifying_message_ignores_alternative_equal_to_primary_domain():
     assert "rephrase" in message.lower()
 
 
+def test_build_clarifying_message_never_names_unrouted_as_a_domain_option():
+    # Regression test: when the classifier's primary guess is itself UNROUTED (with a real
+    # domain as the alternative), the message used to leak "UNROUTED" verbatim, e.g.
+    # "...whether your question is about UNROUTED or Formal Education."
+    message = _build_clarifying_message({"domain": "UNROUTED", "alternative_domain": "D5"})
+    assert "UNROUTED" not in message
+    assert "rephrase" in message.lower()
+
+
 def test_extract_text_handles_plain_string():
     assert _extract_text("hello") == "hello"
 
