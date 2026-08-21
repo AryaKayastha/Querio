@@ -78,7 +78,7 @@ python -m querio_chatbot.scripts.chat_cli
 - **Routing accuracy** — `python -m querio_chatbot.eval.routing_accuracy`
 - **D6 guidance-only boundary** — `tests/test_guidance_only_boundary.py` (skipped unless `GEMINI_API_KEY` is set)
 - **Hybrid retrieval** — `tests/test_hybrid_retrieval.py` covers BM25/RRF weighting and re-rank helpers without needing Gemini
-- Golden Q&A / RAGAS evaluation is not yet built
+- **Answer quality** — `python -m querio_chatbot.eval.answer_quality` runs RAGAS faithfulness, answer relevance, context precision, and context recall against `src/querio_chatbot/eval/golden_qa.py`, reporting D5 and D6 separately
 
 Backend bridge proxy tests live in `backend/tests/` (not here).
 
