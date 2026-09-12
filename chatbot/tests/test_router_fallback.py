@@ -1,4 +1,10 @@
-from querio_chatbot.router.router import _build_clarifying_message, _extract_text, generate_node, retrieve_node
+from querio_chatbot.router.router import (
+    _build_clarifying_message,
+    _extract_text,
+    _format_history,
+    generate_node,
+    retrieve_node,
+)
 
 
 def test_retrieve_node_skips_retrieval_when_low_confidence():
@@ -50,3 +56,22 @@ def test_extract_text_handles_content_block_list_with_opaque_parts():
 
 def test_extract_text_handles_empty_list():
     assert _extract_text([]) == ""
+
+
+def test_format_history_returns_empty_string_for_no_history():
+    assert _format_history(None) == ""
+    assert _format_history([]) == ""
+
+
+def test_format_history_renders_student_and_assistant_lines():
+    history = [
+        {"role": "user", "content": "How much are the fees?"},
+        {"role": "assistant", "content": "Grounded answer"},
+    ]
+    assert _format_history(history) == "Student: How much are the fees?\nAssistant: Grounded answer"
+
+
+def test_format_history_truncates_to_the_last_turn_pairs():
+    history = [{"role": "user", "content": f"question {i}"} for i in range(10)]
+    formatted = _format_history(history, limit=2)
+    assert formatted == "Student: question 6\nStudent: question 7\nStudent: question 8\nStudent: question 9"

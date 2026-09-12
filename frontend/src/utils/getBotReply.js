@@ -36,9 +36,9 @@ const normalizeSources = (sources) => {
 const sourcesToChips = (sources) =>
   [...new Set(sources.map((source) => source.source_name).filter(Boolean))];
 
-export const getBotReply = async (messageText) => {
+export const getBotReply = async (messageText, sessionId) => {
   try {
-    const response = await sendChatMessage(messageText);
+    const response = await sendChatMessage(messageText, sessionId);
 
     const reply = typeof response.answer === "string" && response.answer.trim().length > 0
       ? response.answer

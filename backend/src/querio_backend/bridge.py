@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from querio_backend.bridge_config import CHATBOT_API_URL, CHATBOT_TIMEOUT_SECONDS
+from querio_backend.session_store import session_store
 
 app = FastAPI(title="Querio Backend Bridge")
 
@@ -21,6 +22,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     query: str
+    session_id: str
 
 
 class SourceRef(BaseModel):
@@ -39,19 +41,28 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
+    history = session_store.get_recent(request.session_id)
+    payload = {"query": request.query}
+    if history:
+        payload["history"] = history
+
     try:
         response = httpx.post(
             f"{CHATBOT_API_URL}/chat",
-            json={"query": request.query},
+            json=payload,
             timeout=CHATBOT_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-        return ChatResponse.model_validate(response.json())
+        chat_response = ChatResponse.model_validate(response.json())
     except (httpx.HTTPError, ValueError) as exc:
         raise HTTPException(
             status_code=502,
             detail="The chatbot service is unavailable. Please try again shortly.",
         ) from exc
+
+    session_store.append(request.session_id, "user", request.query)
+    session_store.append(request.session_id, "assistant", chat_response.answer)
+    return chat_response
 
 
 @app.get("/health")

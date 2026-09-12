@@ -18,12 +18,13 @@ const initialMessages = [
 const WidgetPanel = ({ onClose }) => {
   const [messages, setMessages] = useState(initialMessages);
   const [isBotTyping, setIsBotTyping] = useState(false);
+  const [sessionId] = useState(() => generateId("widget-session"));
 
   const respondToMessage = (userMessageText) => {
     setIsBotTyping(true);
 
     window.setTimeout(async () => {
-      const botReply = await getBotReply(userMessageText);
+      const botReply = await getBotReply(userMessageText, sessionId);
 
       const botMessage = {
         id: generateId("bot-message"),

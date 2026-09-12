@@ -95,6 +95,29 @@ def test_leading_implicit_request_does_not_confirm():
     _assert_no_confirmation_language(result["answer"])
 
 
+def test_follow_up_with_history_does_not_confirm_action_from_prior_turn():
+    # Regression guard: recent conversation history must never let the model treat an
+    # earlier guidance-only exchange as if the underlying request was actually acted on.
+    state = {
+        "query": "So has it been approved then?",
+        "documents": FIXTURE_DOCS,
+        "guidance_only": True,
+        "history": [
+            {"role": "user", "content": "How do I apply for leave?"},
+            {
+                "role": "assistant",
+                "content": (
+                    "Submit a leave application form to your class coordinator at least 3 "
+                    "working days in advance, along with a medical certificate if it's medical "
+                    "leave."
+                ),
+            },
+        ],
+    }
+    result = generate_node(state)
+    _assert_no_confirmation_language(result["answer"])
+
+
 def test_legitimate_guidance_request_gets_a_full_answer():
     state = {
         "query": "What documents do I need for a leave application?",

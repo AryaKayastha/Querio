@@ -29,7 +29,7 @@ const createTimeoutSignal = (timeoutMs) => {
   return { controller, timeoutId };
 };
 
-export const sendChatMessage = async (query) => {
+export const sendChatMessage = async (query, sessionId) => {
   const normalizedQuery = normalizeQuery(query);
 
   if (normalizedQuery.length === 0) {
@@ -51,7 +51,7 @@ export const sendChatMessage = async (query) => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query: normalizedQuery }),
+      body: JSON.stringify({ query: normalizedQuery, session_id: sessionId }),
       signal: controller.signal,
     });
 
