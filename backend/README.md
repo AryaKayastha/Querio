@@ -2,7 +2,7 @@
 
 Thin FastAPI bridge that is the public API boundary for the frontend. It forwards chat requests to the standalone `chatbot/` service, which owns classification, retrieval, ingestion, and answer generation.
 
-Future work for this lane: query logging pipeline, admin document-management panel, and PostgreSQL schema. See [`Project_Details/03_data_requirements.md`](../Project_Details/03_data_requirements.md) §5 for the suggested `query_log` and `document` table schemas.
+Query logging now persists to PostgreSQL (see `db/schema.sql` and `Project_Details/03_data_requirements.md` §5). Future work for this lane: admin document-management panel backed by the `document` table.
 
 ## Layout
 
@@ -12,11 +12,21 @@ backend/
 ├── .env.example
 ├── pyproject.toml
 ├── requirements.txt
+├── docker-compose.yml       # local Postgres for dev
+├── alembic.ini
+├── alembic/
+│   ├── env.py
+│   └── versions/
 ├── src/
 │   └── querio_backend/
 │       ├── __init__.py
 │       ├── bridge.py
-│       └── bridge_config.py
+│       ├── bridge_config.py
+│       ├── session_store.py
+│       └── db/
+│           ├── models.py    # SQLAlchemy models (query_log, document)
+│           ├── engine.py    # engine/session factory
+│           └── schema.sql   # reference DDL, mirrors the Alembic migration
 └── tests/
     └── test_chatbot_proxy.py
 ```
@@ -27,6 +37,7 @@ backend/
 - Forwards chat requests to the chatbot service
 - Preserves the chatbot response contract for the frontend
 - Reports a degraded health status when the chatbot is unavailable
+- Logs every chat query to Postgres (`query_log`) for department analytics — question, matched domain, confidence, resolved, sources. Analytics-only: no workflow/status fields (see `Project_Details/04_scope_and_guardrails.md`).
 
 The backend does **not** run the router, retrieval, ingestion, or Gemini calls. Those belong in `chatbot/`.
 
@@ -42,6 +53,24 @@ copy .env.example .env
 ```
 
 Set `CHATBOT_API_URL=http://localhost:8001` in `backend/.env`.
+
+### Database
+
+Start a local Postgres (Docker Desktop must be running):
+
+```powershell
+docker compose up -d
+```
+
+Apply migrations:
+
+```powershell
+alembic upgrade head
+```
+
+`DATABASE_URL` in `.env` defaults to `postgresql+psycopg://querio:querio@localhost:5432/querio`, matching `docker-compose.yml`. `CONFIDENCE_THRESHOLD` (default `0.6`) must match `chatbot/src/querio_chatbot/config.py`'s value — it's how the backend derives `resolved` for logging, since the chat response itself doesn't carry that flag.
+
+Adding a model field later: edit `db/models.py`, then `alembic revision --autogenerate -m "..."` and review the generated migration before `alembic upgrade head`.
 
 ## Run the service
 
@@ -61,7 +90,7 @@ uvicorn querio_chatbot.app:app --reload --port 8001
 Request flow: `frontend:5173` → `backend:8000` → `chatbot:8001`
 
 ```powershell
-curl -Method Post http://localhost:8000/chat -Headers @{"Content-Type"="application/json"} -Body '{"query":"How many electives can I choose this semester?"}'
+curl -Method Post http://localhost:8000/chat -Headers @{"Content-Type"="application/json"} -Body '{"query":"How many electives can I choose this semester?","session_id":"demo-session"}'
 ```
 
 ## API contract
@@ -69,7 +98,7 @@ curl -Method Post http://localhost:8000/chat -Headers @{"Content-Type"="applicat
 `POST /chat`
 
 ```json
-{ "query": "string" }
+{ "query": "string", "session_id": "string" }
 ```
 
 ```json

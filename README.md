@@ -46,12 +46,54 @@ Request flow:
 
 ## How to run locally
 
-1. Start the chatbot service from `chatbot/` on port **8001**.
-2. Start the backend bridge from `backend/` on port **8000**.
-3. Start the frontend from `frontend/` (port **5173**).
-4. Add source documents under `data/` and run ingestion from `chatbot/` whenever the corpus changes.
+Assumes each lane's one-time setup is already done (venvs created, `pip install -e .`, `npm install`, `.env` copied — see each folder's README). Run these in order, each in its own terminal, from the repo root.
 
-See the folder-specific README files for exact commands and environment variables.
+**1. Database** (backend/)
+
+```powershell
+cd backend
+docker compose up -d          # starts local Postgres (Docker Desktop must be running)
+alembic upgrade head          # applies the query_log / document schema
+cd ..
+```
+
+**2. Ingest documents** (chatbot/) — only needed the first time or when the corpus under `data/` changes:
+
+```powershell
+cd chatbot
+.venv\Scripts\activate
+python -m querio_chatbot.ingestion.ingest
+cd ..
+```
+
+**3. Chatbot service** — port **8001**:
+
+```powershell
+cd chatbot
+.venv\Scripts\activate
+uvicorn querio_chatbot.app:app --reload --port 8001
+```
+
+**4. Backend bridge** — port **8000** (new terminal):
+
+```powershell
+cd backend
+.venv\Scripts\activate
+uvicorn querio_backend.bridge:app --reload --port 8000
+```
+
+**5. Frontend** — port **5173** (new terminal):
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Open **http://localhost:5173** once all three services report healthy (`GET http://localhost:8000/health` should return `{"status":"ok","chatbot":"ok"}`).
+
+To stop: `Ctrl+C` each service, then `docker compose stop` from `backend/` (add `-v` after `down` instead of `stop` only if you want to wipe the local Postgres data).
+
+See the folder-specific README files ([`backend/README.md`](backend/README.md), [`chatbot/README.md`](chatbot/README.md), [`frontend/README.md`](frontend/README.md)) for first-time setup, environment variables, and troubleshooting.
 
 ## Important files
 

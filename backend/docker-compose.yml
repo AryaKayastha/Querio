@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: querio
+      POSTGRES_PASSWORD: querio
+      POSTGRES_DB: querio
+    ports:
+      - "5432:5432"
+    volumes:
+      - querio_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  querio_postgres_data:
