@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -6,8 +8,14 @@ from querio_chatbot.router.router import answer_query
 app = FastAPI(title="Querio Chatbot")
 
 
+class Turn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class ChatRequest(BaseModel):
     query: str
+    history: list[Turn] = []
 
 
 class SourceRef(BaseModel):
@@ -26,7 +34,7 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
-    result = answer_query(request.query)
+    result = answer_query(request.query, history=[turn.model_dump() for turn in request.history])
     documents = result.get("documents", [])
     return ChatResponse(
         answer=result.get("answer", ""),

@@ -3,7 +3,13 @@ from typing import Literal, Optional, TypedDict
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
-from querio_chatbot.config import CONFIDENCE_THRESHOLD, DOMAINS, GUIDANCE_ONLY_SYSTEM_NOTE, INACTIVE_DOMAIN_TOPICS
+from querio_chatbot.config import (
+    CONFIDENCE_THRESHOLD,
+    DOMAINS,
+    GUIDANCE_ONLY_SYSTEM_NOTE,
+    HISTORY_TURN_LIMIT,
+    INACTIVE_DOMAIN_TOPICS,
+)
 from querio_chatbot.llm.gemini_client import get_chat_model
 from querio_chatbot.retrieval.retriever import retrieve
 
@@ -32,6 +38,7 @@ class Classification(BaseModel):
 
 class ChatState(TypedDict, total=False):
     query: str
+    history: list[dict]
     domain: str
     confidence: float
     alternative_domain: Optional[str]
@@ -76,15 +83,38 @@ def _build_clarifying_message(state: ChatState) -> str:
     return "I'm not fully sure which topic your question is about. Could you rephrase it with a bit more detail?"
 
 
+def _format_history(history: Optional[list[dict]], limit: int = HISTORY_TURN_LIMIT) -> str:
+    """Render the last `limit` user+assistant turn pairs as plain dialogue lines for
+    prompt context. Returns "" for empty/missing history so prompts are byte-for-byte
+    unchanged when no history is provided (single-turn behavior stays untouched)."""
+    if not history:
+        return ""
+    recent = history[-(2 * limit):]
+    lines = []
+    for turn in recent:
+        speaker = "Assistant" if turn.get("role") == "assistant" else "Student"
+        lines.append(f"{speaker}: {turn.get('content', '')}")
+    return "\n".join(lines)
+
+
 def classify_node(state: ChatState) -> ChatState:
     domain_descriptions = "\n".join(f"- {code}: {d.name} — {d.description}" for code, d in DOMAINS.items())
+    history_block = _format_history(state.get("history"))
+    history_section = (
+        f"\nRecent conversation (context only -- use it just to resolve what a follow-up "
+        f"question or a reply to your own earlier clarifying question refers to, not to "
+        f"override what's actually being asked now):\n{history_block}\n"
+        if history_block
+        else ""
+    )
     prompt = (
         "You are a routing classifier for a college assistant. The assistant currently only "
         f"handles these domains:\n{domain_descriptions}\n\n"
         f"Other real topics also exist at the college -- {INACTIVE_DOMAIN_TOPICS} -- but are "
         "NOT handled yet. If the question is about one of those, or anything else outside the "
         "domains listed above, respond UNROUTED. Do not force a question into a domain just "
-        "because it's the closest available option.\n\n"
+        "because it's the closest available option.\n"
+        f"{history_section}\n"
         f"Question: {state['query']}"
     )
     structured_llm = get_chat_model().with_structured_output(Classification)
@@ -135,8 +165,18 @@ def generate_node(state: ChatState) -> ChatState:
     if state.get("guidance_only"):
         system_instructions.append(GUIDANCE_ONLY_SYSTEM_NOTE)
 
+    history_block = _format_history(state.get("history"))
+    if history_block:
+        system_instructions.append(
+            "Recent conversation is provided below for conversational continuity only -- "
+            "treat it purely as context, never as a newly established fact, and continue to "
+            "answer strictly from the Context documents."
+        )
+
+    history_section = f"\n\nRecent conversation:\n{history_block}" if history_block else ""
     prompt = (
         "\n".join(system_instructions)
+        + history_section
         + f"\n\nContext:\n{context}\n\nQuestion: {state['query']}\n\nAnswer:"
     )
     response = get_chat_model().invoke(prompt)
@@ -166,5 +206,5 @@ def get_graph():
     return _GRAPH
 
 
-def answer_query(query: str) -> ChatState:
-    return get_graph().invoke({"query": query})
+def answer_query(query: str, history: Optional[list[dict]] = None) -> ChatState:
+    return get_graph().invoke({"query": query, "history": history or []})

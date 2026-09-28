@@ -1,5 +1,5 @@
 const DEFAULT_API_BASE = "http://localhost:8000";
-const REQUEST_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 export const MAX_QUERY_LENGTH = 2000; // Client-side safeguard until a server-side limit is enforced.
 
@@ -29,7 +29,7 @@ const createTimeoutSignal = (timeoutMs) => {
   return { controller, timeoutId };
 };
 
-export const sendChatMessage = async (query) => {
+export const sendChatMessage = async (query, sessionId) => {
   const normalizedQuery = normalizeQuery(query);
 
   if (normalizedQuery.length === 0) {
@@ -51,7 +51,7 @@ export const sendChatMessage = async (query) => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query: normalizedQuery }),
+      body: JSON.stringify({ query: normalizedQuery, session_id: sessionId }),
       signal: controller.signal,
     });
 
@@ -79,7 +79,7 @@ export const sendChatMessage = async (query) => {
     if (error && error.name === "AbortError") {
       throw new BackendApiError(
         "timeout",
-        "The chat request timed out after 15 seconds. Please try again."
+        "The chat request timed out after 30 seconds. Please try again."
       );
     }
 

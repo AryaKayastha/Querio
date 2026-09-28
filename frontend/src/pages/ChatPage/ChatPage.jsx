@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Sidebar from "../../components/Sidebar/Sidebar.jsx";
 import ChatHeader from "../../components/ChatHeader/ChatHeader.jsx";
 import ChatWindow from "../../components/ChatWindow/ChatWindow.jsx";
@@ -7,6 +7,12 @@ import ChatInput from "../../components/ChatInput/ChatInput.jsx";
 import { greetingMessage } from "../../data/recentChats.js";
 import { getBotReply } from "../../utils/getBotReply.js";
 import { generateId } from "../../utils/generateId.js";
+import {
+  loadStoredChats,
+  saveStoredChats,
+  loadStoredActiveChatId,
+  saveStoredActiveChatId,
+} from "../../utils/chatStorage.js";
 import styles from "./ChatPage.module.css";
 
 const BOT_REPLY_DELAY_MS = 900;
@@ -22,12 +28,21 @@ const buildTitleFromMessage = (messageText) => {
 
 const ChatPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const hasHandledInitialMessage = useRef(false);
 
-  const [recentChats, setRecentChats] = useState([]);
-  const [activeChatId, setActiveChatId] = useState(null);
+  const [recentChats, setRecentChats] = useState(() => loadStoredChats());
+  const [activeChatId, setActiveChatId] = useState(() => loadStoredActiveChatId());
   const [draftMessages, setDraftMessages] = useState([greetingMessage]);
   const [isBotTyping, setIsBotTyping] = useState(false);
+
+  useEffect(() => {
+    saveStoredChats(recentChats);
+  }, [recentChats]);
+
+  useEffect(() => {
+    saveStoredActiveChatId(activeChatId);
+  }, [activeChatId]);
 
   const activeChat = recentChats.find((chat) => chat.id === activeChatId);
   const activeMessages = activeChat ? activeChat.messages : draftMessages;
@@ -47,7 +62,7 @@ const ChatPage = () => {
     setIsBotTyping(true);
 
     window.setTimeout(async () => {
-      const botReply = await getBotReply(userMessageText);
+      const botReply = await getBotReply(userMessageText, chatId);
 
       const botMessage = {
         id: generateId("bot-message"),
@@ -70,6 +85,10 @@ const ChatPage = () => {
     }
 
     hasHandledInitialMessage.current = true;
+
+    // Strip the initialMessage from history state so a page refresh (which
+    // preserves window.history.state) doesn't replay it as a new query.
+    navigate(location.pathname, { replace: true, state: {} });
 
     const newChatId = generateId("chat");
     const userMessage = {

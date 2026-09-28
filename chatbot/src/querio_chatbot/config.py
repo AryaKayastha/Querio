@@ -64,6 +64,10 @@ INACTIVE_DOMAIN_TOPICS = (
 # clarify instead of committing to a domain -- see 02_architecture.md §2.2.
 CONFIDENCE_THRESHOLD = 0.6
 
+# Max number of prior user+assistant turn *pairs* (i.e. up to 2x this many history
+# entries) the router will use as conversational context for a follow-up question.
+HISTORY_TURN_LIMIT = 3
+
 GUIDANCE_ONLY_SYSTEM_NOTE = (
     "This domain is guidance-only. Explain the process, policy, eligibility, required "
     "documents, and timelines, and point the student to the right contact/procedure. "
