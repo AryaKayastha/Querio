@@ -50,15 +50,22 @@ DOMAINS: dict[str, Domain] = {
         data_dir=DATA_ROOT / "D6_leave_attendance",
         guidance_only=True,
     ),
+    "D4": Domain(
+        code="D4",
+        name="Career, NOC & Placement",
+        description=(
+            "Placement guidelines and eligibility, participating companies, job descriptions/roles, "
+            "and the no-objection certificate (NOC) process for internships and placements."
+        ),
+        data_dir=DATA_ROOT / "D4_career_noc",
+        guidance_only=True,
+    ),
 }
 
-# Real topics that exist at the college but aren't wired up as active domains yet (D1-D4).
+# Real topics that exist at the college but aren't wired up as active domains yet (D1-D3).
 # The classifier is told about these explicitly so it routes them to UNROUTED instead of
-# force-fitting them into D5/D6 just because they're the closest available option.
-INACTIVE_DOMAIN_TOPICS = (
-    "co-curricular activities/clubs, certifications, extra-curricular activities/sports, "
-    "and career/internship/placement (including NOC)"
-)
+# force-fitting them into an active domain just because it's the closest available option.
+INACTIVE_DOMAIN_TOPICS = "co-curricular activities/clubs, certifications, and extra-curricular activities/sports"
 
 # Below this, the router treats the query as ambiguous and asks the student to
 # clarify instead of committing to a domain -- see 02_architecture.md §2.2.

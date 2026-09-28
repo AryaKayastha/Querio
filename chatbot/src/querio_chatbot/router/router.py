@@ -18,10 +18,11 @@ NO_ANSWER_MESSAGE = (
     "department office, or try rephrasing your question."
 )
 
-# NOTE: keep this Literal in sync with the active keys in config.DOMAINS as domains
-# are brought online (currently D5, D6). UNROUTED means the query didn't clearly
-# match any active domain.
-DomainCode = Literal["D5", "D6", "UNROUTED"]
+# Derived from config.DOMAINS so newly activated domains are automatically valid structured-
+# output values -- a hardcoded Literal here previously caused Gemini's structured output to
+# silently coerce a correct classification into UNROUTED whenever the true domain wasn't listed.
+# UNROUTED means the query didn't clearly match any active domain.
+DomainCode = Literal[tuple(DOMAINS) + ("UNROUTED",)]
 
 
 class Classification(BaseModel):
