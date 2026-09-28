@@ -45,6 +45,27 @@ def _significant_tokens(text: str) -> set[str]:
     return {token for token in _tokenize(text) if token not in _STOPWORDS}
 
 
+_ORDINAL_WORDS = {
+    "first": "1", "second": "2", "third": "3", "fourth": "4",
+    "fifth": "5", "sixth": "6", "seventh": "7", "eighth": "8",
+}
+_SEM = r"sem(?:ester)?s?"
+_NUMBER_THEN_SEM_RE = re.compile(rf"\b([1-8])\s*(?:st|nd|rd|th)?\s*-?\s*{_SEM}\b", re.IGNORECASE)
+_SEM_THEN_NUMBER_RE = re.compile(rf"\b{_SEM}\s*[-–]?\s*([1-8])\b", re.IGNORECASE)
+_WORD_THEN_SEM_RE = re.compile(rf"\b({'|'.join(_ORDINAL_WORDS)})\s+{_SEM}\b", re.IGNORECASE)
+
+
+def _normalize_query(query: str) -> str:
+    """Rewrite "4th sem", "sem-4", "fourth semester" etc. to "semester 4".
+
+    Students abbreviate semesters many ways, but the documents say "Semester 4", so the
+    abbreviated forms miss on BM25 (different tokens) and drift on embeddings.
+    """
+    query = _WORD_THEN_SEM_RE.sub(lambda m: f"semester {_ORDINAL_WORDS[m.group(1).lower()]}", query)
+    query = _NUMBER_THEN_SEM_RE.sub(r"semester \1", query)
+    return _SEM_THEN_NUMBER_RE.sub(r"semester \1", query)
+
+
 def _keyword_weight(domain_code: str) -> float:
     return KEYWORD_WEIGHT_BY_DOMAIN.get(domain_code, 0.40)
 
@@ -199,6 +220,7 @@ def retrieve(domain_code: str, query: str, k: int = 8) -> list[Document]:
 
     candidate_k = max(k, min(CANDIDATE_K, collection._collection.count()))
     keyword_weight = _keyword_weight(domain_code)
+    query = _normalize_query(query)
 
     semantic_docs = _semantic_candidates(domain_code, query, candidate_k)
     keyword_docs = _bm25_candidates(domain_code, query, candidate_k)

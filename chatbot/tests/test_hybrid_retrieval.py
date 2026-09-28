@@ -4,11 +4,25 @@ from querio_chatbot.retrieval.retriever import (
     KEYWORD_WEIGHT_BY_DOMAIN,
     _bm25_candidates,
     _keyword_weight,
+    _normalize_query,
     _rerank,
     _tokenize,
     _weighted_rrf,
     retrieve,
 )
+
+
+def test_normalize_query_rewrites_semester_abbreviations():
+    assert _normalize_query("syllabus for 4th sem") == "syllabus for semester 4"
+    assert _normalize_query("sem-3 subjects") == "semester 3 subjects"
+    assert _normalize_query("electives in Sem 4") == "electives in semester 4"
+    assert _normalize_query("fourth semester courses") == "semester 4 courses"
+    assert _normalize_query("2nd semester") == "semester 2"
+
+
+def test_normalize_query_leaves_non_semester_numbers_alone():
+    assert _normalize_query("75% attendance rule") == "75% attendance rule"
+    assert _normalize_query("what is semester 2") == "what is semester 2"
 
 
 def test_tokenize_lowercases_and_keeps_percent_terms():
