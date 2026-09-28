@@ -23,7 +23,7 @@ Querio/
 └── Project_Details/
 ```
 
-Current target: end-to-end for **D5 (Formal Education)** and **D6 (Leave Management & Attendance)**. D1–D4 follow as their data is collected.
+Current target: end-to-end for **D4 (Career, NOC & Placement)**, **D5 (Formal Education)**, and **D6 (Leave Management & Attendance)**. D1–D3 follow as their data is collected.
 
 ## Integration contract
 
@@ -57,7 +57,7 @@ alembic upgrade head          # applies the query_log / document schema
 cd ..
 ```
 
-**2. Ingest documents** (chatbot/) — only needed the first time or when the corpus under `data/` changes:
+**2. Ingest documents** (chatbot/) — needed the first time and after pulling changes under `data/`. Safe to re-run: it embeds only new/changed chunks and resumes if interrupted (see [`chatbot/README.md`](chatbot/README.md#ingest-documents-into-the-vector-store)):
 
 ```powershell
 cd chatbot
