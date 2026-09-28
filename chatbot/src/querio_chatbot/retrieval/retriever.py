@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
+import threading
 from collections import defaultdict
-from functools import lru_cache
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -49,18 +49,41 @@ def _keyword_weight(domain_code: str) -> float:
     return KEYWORD_WEIGHT_BY_DOMAIN.get(domain_code, 0.40)
 
 
-@lru_cache
+# FastAPI runs each sync request in its own thread, so the first concurrent requests to touch
+# a domain can race to build its Chroma/BM25 singleton. functools.lru_cache does NOT guard
+# against this -- it only locks its own bookkeeping, not the wrapped call -- so concurrent
+# cache misses previously ran chromadb.PersistentClient(...) multiple times against the same
+# on-disk SQLite store simultaneously, which crashed or hung depending on timing (root cause of
+# intermittent "server unavailable" errors under concurrent use). These locks make first-touch
+# initialization single-flight per domain; every other thread just waits and reuses the result.
+_collection_cache: dict[str, Chroma] = {}
+_collection_cache_lock = threading.Lock()
+_bm25_cache: dict[str, tuple[BM25Okapi, tuple[Document, ...]] | None] = {}
+_bm25_cache_lock = threading.Lock()
+
+
 def _get_collection(domain_code: str) -> Chroma:
-    return Chroma(
-        collection_name=collection_name(domain_code),
-        embedding_function=get_embeddings(),
-        persist_directory=str(VECTORSTORE_DIR),
-    )
+    if domain_code not in _collection_cache:
+        with _collection_cache_lock:
+            if domain_code not in _collection_cache:
+                _collection_cache[domain_code] = Chroma(
+                    collection_name=collection_name(domain_code),
+                    embedding_function=get_embeddings(),
+                    persist_directory=str(VECTORSTORE_DIR),
+                )
+    return _collection_cache[domain_code]
 
 
-@lru_cache
 def _bm25_index(domain_code: str) -> tuple[BM25Okapi, tuple[Document, ...]] | None:
     """Build an in-memory BM25 index over all chunks in the domain collection."""
+    if domain_code not in _bm25_cache:
+        with _bm25_cache_lock:
+            if domain_code not in _bm25_cache:
+                _bm25_cache[domain_code] = _build_bm25_index(domain_code)
+    return _bm25_cache[domain_code]
+
+
+def _build_bm25_index(domain_code: str) -> tuple[BM25Okapi, tuple[Document, ...]] | None:
     collection = _get_collection(domain_code)
     raw = collection.get(include=["documents", "metadatas"])
     texts = raw.get("documents") or []
@@ -162,11 +185,13 @@ def _rerank(query: str, ranked: list[tuple[Document, float]]) -> list[Document]:
 
 def clear_retrieval_caches() -> None:
     """Drop cached Chroma/BM25 handles (call after re-ingestion in the same process)."""
-    _get_collection.cache_clear()
-    _bm25_index.cache_clear()
+    with _collection_cache_lock:
+        _collection_cache.clear()
+    with _bm25_cache_lock:
+        _bm25_cache.clear()
 
 
-def retrieve(domain_code: str, query: str, k: int = 4) -> list[Document]:
+def retrieve(domain_code: str, query: str, k: int = 8) -> list[Document]:
     """Hybrid retrieve: semantic + BM25, fused with weighted RRF, then light re-rank."""
     collection = _get_collection(domain_code)
     if collection._collection.count() == 0:
