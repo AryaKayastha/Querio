@@ -1,6 +1,6 @@
 # Chatbot (Arya)
 
-Domain router + retrieval engine + LLM integration for Querio. Currently scoped to **D5 (Formal Education)** and **D6 (Leave Management & Attendance)** — the two domains with usable source data. Adding D1–D4 later means: drop their documents in `../data/<domain>/`, add the domain to `DOMAINS` in `src/querio_chatbot/config.py`, and re-ingest — no router/retrieval code changes required.
+Domain router + retrieval engine + LLM integration for Querio. Currently scoped to **D4 (Career, NOC & Placement)**, **D5 (Formal Education)**, and **D6 (Leave Management & Attendance)** — the domains with usable source data. Adding D1–D3 later means: drop their documents in `../data/<domain>/`, add the domain to `DOMAINS` in `src/querio_chatbot/config.py`, and ingest it — no router/retrieval code changes required.
 
 Stack: **Gemini** (LLM + embeddings) · **LangGraph** (classify → retrieve → answer graph) · **Chroma** (per-domain vector store namespaces) · **FastAPI** (service boundary for `backend/` to call).
 
@@ -19,13 +19,23 @@ Fill in `GEMINI_API_KEY` in `.env`.
 
 ## Ingest documents into the vector store
 
-Put source docs in `../data/D5_formal_education/` and `../data/D6_leave_attendance/` (see [`../data/README.md`](../data/README.md)), then run:
+Put source docs in the domain folders under `../data/` (see [`../data/README.md`](../data/README.md)), then run:
 
 ```powershell
-python -m querio_chatbot.ingestion.ingest
+python -m querio_chatbot.ingestion.ingest          # all domains
+python -m querio_chatbot.ingestion.ingest D4 D6    # only these domains
 ```
 
-This (re)builds the Chroma collections in `vectorstore/` (gitignored — regenerate, don't commit).
+Collections live in `vectorstore/` (gitignored — each teammate builds their own; don't commit it). Ingestion syncs each domain's collection with its documents, so it is safe to re-run any time:
+
+- **Only new or changed chunks are embedded.** Chunks already stored are skipped, so after pulling new documents a re-run spends embedding quota only on what changed.
+- **Stale chunks are removed** (edited or deleted documents, duplicate copies) at no embedding cost.
+- **An interrupted run resumes.** Failed embedding calls are retried; if a run still stops (quota, network, Gemini overload), run the same command again.
+- **A different embedding model is refused.** Each collection records the model that built it. If `GEMINI_EMBEDDING_MODEL` differs, ingestion stops instead of mixing incompatible vectors — delete `vectorstore/` and re-run to rebuild.
+
+A full build from scratch is ~950 embeddings (D5 892, D4 47, D6 12), close to the free-tier daily embedding limit — if it stops partway, re-run it the next day and it continues where it left off.
+
+**Semester course lists:** each semester's subject list lives in only one or two table pages of the booklets, which rarely name the semester and are outnumbered by detailed per-subject syllabus pages. `../data/D5_formal_education/Semester_N_Courses.md` hold curated transcriptions of those tables so "subjects for semester N" retrieves the right list. Update them when a new booklet is released.
 
 ## Run the service
 
@@ -50,7 +60,7 @@ curl -Method Post http://localhost:8001/chat -Headers @{"Content-Type"="applicat
 ```json
 {
   "answer": "string",
-  "domain": "D5 | D6 | UNROUTED",
+  "domain": "D4 | D5 | D6 | UNROUTED",
   "confidence": 0.92,
   "sources": [
     {
