@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
+import threading
 from collections import defaultdict
-from functools import lru_cache
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -45,22 +45,66 @@ def _significant_tokens(text: str) -> set[str]:
     return {token for token in _tokenize(text) if token not in _STOPWORDS}
 
 
+_ORDINAL_WORDS = {
+    "first": "1", "second": "2", "third": "3", "fourth": "4",
+    "fifth": "5", "sixth": "6", "seventh": "7", "eighth": "8",
+}
+_SEM = r"sem(?:ester)?s?"
+_NUMBER_THEN_SEM_RE = re.compile(rf"\b([1-8])\s*(?:st|nd|rd|th)?\s*-?\s*{_SEM}\b", re.IGNORECASE)
+_SEM_THEN_NUMBER_RE = re.compile(rf"\b{_SEM}\s*[-–]?\s*([1-8])\b", re.IGNORECASE)
+_WORD_THEN_SEM_RE = re.compile(rf"\b({'|'.join(_ORDINAL_WORDS)})\s+{_SEM}\b", re.IGNORECASE)
+
+
+def _normalize_query(query: str) -> str:
+    """Rewrite "4th sem", "sem-4", "fourth semester" etc. to "semester 4".
+
+    Students abbreviate semesters many ways, but the documents say "Semester 4", so the
+    abbreviated forms miss on BM25 (different tokens) and drift on embeddings.
+    """
+    query = _WORD_THEN_SEM_RE.sub(lambda m: f"semester {_ORDINAL_WORDS[m.group(1).lower()]}", query)
+    query = _NUMBER_THEN_SEM_RE.sub(r"semester \1", query)
+    return _SEM_THEN_NUMBER_RE.sub(r"semester \1", query)
+
+
 def _keyword_weight(domain_code: str) -> float:
     return KEYWORD_WEIGHT_BY_DOMAIN.get(domain_code, 0.40)
 
 
-@lru_cache
+# FastAPI runs each sync request in its own thread, so the first concurrent requests to touch
+# a domain can race to build its Chroma/BM25 singleton. functools.lru_cache does NOT guard
+# against this -- it only locks its own bookkeeping, not the wrapped call -- so concurrent
+# cache misses previously ran chromadb.PersistentClient(...) multiple times against the same
+# on-disk SQLite store simultaneously, which crashed or hung depending on timing (root cause of
+# intermittent "server unavailable" errors under concurrent use). These locks make first-touch
+# initialization single-flight per domain; every other thread just waits and reuses the result.
+_collection_cache: dict[str, Chroma] = {}
+_collection_cache_lock = threading.Lock()
+_bm25_cache: dict[str, tuple[BM25Okapi, tuple[Document, ...]] | None] = {}
+_bm25_cache_lock = threading.Lock()
+
+
 def _get_collection(domain_code: str) -> Chroma:
-    return Chroma(
-        collection_name=collection_name(domain_code),
-        embedding_function=get_embeddings(),
-        persist_directory=str(VECTORSTORE_DIR),
-    )
+    if domain_code not in _collection_cache:
+        with _collection_cache_lock:
+            if domain_code not in _collection_cache:
+                _collection_cache[domain_code] = Chroma(
+                    collection_name=collection_name(domain_code),
+                    embedding_function=get_embeddings(),
+                    persist_directory=str(VECTORSTORE_DIR),
+                )
+    return _collection_cache[domain_code]
 
 
-@lru_cache
 def _bm25_index(domain_code: str) -> tuple[BM25Okapi, tuple[Document, ...]] | None:
     """Build an in-memory BM25 index over all chunks in the domain collection."""
+    if domain_code not in _bm25_cache:
+        with _bm25_cache_lock:
+            if domain_code not in _bm25_cache:
+                _bm25_cache[domain_code] = _build_bm25_index(domain_code)
+    return _bm25_cache[domain_code]
+
+
+def _build_bm25_index(domain_code: str) -> tuple[BM25Okapi, tuple[Document, ...]] | None:
     collection = _get_collection(domain_code)
     raw = collection.get(include=["documents", "metadatas"])
     texts = raw.get("documents") or []
@@ -162,11 +206,13 @@ def _rerank(query: str, ranked: list[tuple[Document, float]]) -> list[Document]:
 
 def clear_retrieval_caches() -> None:
     """Drop cached Chroma/BM25 handles (call after re-ingestion in the same process)."""
-    _get_collection.cache_clear()
-    _bm25_index.cache_clear()
+    with _collection_cache_lock:
+        _collection_cache.clear()
+    with _bm25_cache_lock:
+        _bm25_cache.clear()
 
 
-def retrieve(domain_code: str, query: str, k: int = 4) -> list[Document]:
+def retrieve(domain_code: str, query: str, k: int = 8) -> list[Document]:
     """Hybrid retrieve: semantic + BM25, fused with weighted RRF, then light re-rank."""
     collection = _get_collection(domain_code)
     if collection._collection.count() == 0:
@@ -174,6 +220,7 @@ def retrieve(domain_code: str, query: str, k: int = 4) -> list[Document]:
 
     candidate_k = max(k, min(CANDIDATE_K, collection._collection.count()))
     keyword_weight = _keyword_weight(domain_code)
+    query = _normalize_query(query)
 
     semantic_docs = _semantic_candidates(domain_code, query, candidate_k)
     keyword_docs = _bm25_candidates(domain_code, query, candidate_k)

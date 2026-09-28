@@ -1,9 +1,33 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from querio_chatbot.config import Domain
+from querio_chatbot.ingestion import ingest
 from querio_chatbot.ingestion.ingest import _parse_frontmatter, load_domain_chunks
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+FIXTURE_DOMAIN = Domain(
+    code="TEST", name="Test", description="Test fixture domain", data_dir=FIXTURES_DIR, guidance_only=False
+)
+
+
+def test_ingest_domain_embeds_only_chunks_not_already_in_collection(monkeypatch):
+    chunks = load_domain_chunks(FIXTURE_DOMAIN)
+    already_embedded = chunks[0]
+    store = MagicMock()
+    store.get.return_value = {
+        "documents": [already_embedded.page_content],
+        "metadatas": [dict(already_embedded.metadata)],
+    }
+    monkeypatch.setattr(ingest, "Chroma", lambda **_: store)
+    monkeypatch.setattr(ingest, "get_embeddings", lambda: None)
+    monkeypatch.setattr(ingest.time, "sleep", lambda _: None)
+
+    embedded_count = ingest.ingest_domain(FIXTURE_DOMAIN)
+
+    added = [doc for call in store.add_documents.call_args_list for doc in call.args[0]]
+    assert embedded_count == len(chunks) - 1
+    assert already_embedded.page_content not in [doc.page_content for doc in added]
 
 
 def test_parse_frontmatter_extracts_known_fields():
@@ -30,10 +54,7 @@ def test_parse_frontmatter_missing_block_returns_full_text():
 
 
 def test_load_domain_chunks_extracts_metadata_and_sections():
-    fixture_domain = Domain(
-        code="TEST", name="Test", description="Test fixture domain", data_dir=FIXTURES_DIR, guidance_only=False
-    )
-    chunks = load_domain_chunks(fixture_domain)
+    chunks = load_domain_chunks(FIXTURE_DOMAIN)
 
     assert len(chunks) >= 2
     assert all(c.metadata["source_name"] == "Fixture Policy Doc" for c in chunks)

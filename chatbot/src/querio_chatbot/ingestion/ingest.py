@@ -6,8 +6,11 @@ Scanned PDFs without extractable text are skipped with a warning.
 Usage: python -m querio_chatbot.ingestion.ingest [DOMAIN_CODE ...]
 Each domain's chunks live in their own Chroma collection (see collection_name()), so
 re-ingesting one domain never touches another's. With no arguments, every domain in
-DOMAINS is (re-)ingested -- pass explicit codes (e.g. "D4 D6") to embed only new/changed
-domains and avoid burning embedding-API quota re-processing domains that haven't changed.
+DOMAINS is ingested; pass explicit codes (e.g. "D4 D6") to limit it.
+
+Ingestion is incremental: chunks already in the collection (same source, section, and text)
+are skipped, so adding a file to a domain only embeds that file's chunks. This keeps re-runs
+from duplicating vectors or spending embedding-API quota on unchanged documents.
 """
 
 import sys
@@ -137,9 +140,13 @@ def load_domain_chunks(domain: Domain) -> list[Document]:
     return documents
 
 
+def _chunk_key(text: str, metadata: dict) -> tuple[str, str, str]:
+    return (str(metadata.get("source_name", "")), str(metadata.get("source_section", "")), text)
+
+
 def ingest_domain(domain: Domain) -> int:
-    chunks = load_domain_chunks(domain)
-    if not chunks:
+    all_chunks = load_domain_chunks(domain)
+    if not all_chunks:
         print(f"[{domain.code}] no ingestible documents found in {domain.data_dir} -- skipping")
         return 0
 
@@ -148,6 +155,19 @@ def ingest_domain(domain: Domain) -> int:
         embedding_function=get_embeddings(),
         persist_directory=str(VECTORSTORE_DIR),
     )
+    existing = store.get(include=["documents", "metadatas"])
+    existing_keys = {
+        _chunk_key(text or "", metadata or {})
+        for text, metadata in zip(existing.get("documents") or [], existing.get("metadatas") or [])
+    }
+    chunks = [chunk for chunk in all_chunks if _chunk_key(chunk.page_content, chunk.metadata) not in existing_keys]
+    skipped = len(all_chunks) - len(chunks)
+    if not chunks:
+        print(f"[{domain.code}] all {len(all_chunks)} chunks already embedded -- nothing to do")
+        return 0
+    if skipped:
+        print(f"[{domain.code}] skipping {skipped} already-embedded chunks, embedding {len(chunks)} new")
+
     for start in range(0, len(chunks), EMBED_BATCH_SIZE):
         batch = chunks[start : start + EMBED_BATCH_SIZE]
         store.add_documents(batch)
