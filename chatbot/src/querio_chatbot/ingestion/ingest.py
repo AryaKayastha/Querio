@@ -2,8 +2,15 @@
 
 Supported formats are curated Markdown/text with frontmatter and raw PDFs.
 Scanned PDFs without extractable text are skipped with a warning.
+
+Usage: python -m querio_chatbot.ingestion.ingest [DOMAIN_CODE ...]
+Each domain's chunks live in their own Chroma collection (see collection_name()), so
+re-ingesting one domain never touches another's. With no arguments, every domain in
+DOMAINS is (re-)ingested -- pass explicit codes (e.g. "D4 D6") to embed only new/changed
+domains and avoid burning embedding-API quota re-processing domains that haven't changed.
 """
 
+import sys
 import time
 from pathlib import Path
 
@@ -154,7 +161,16 @@ def ingest_domain(domain: Domain) -> int:
 
 
 def main() -> None:
-    for domain in DOMAINS.values():
+    requested_codes = sys.argv[1:]
+    if not requested_codes:
+        domains = list(DOMAINS.values())
+    else:
+        unknown = [code for code in requested_codes if code not in DOMAINS]
+        if unknown:
+            raise SystemExit(f"Unknown domain code(s): {', '.join(unknown)} (known: {', '.join(DOMAINS)})")
+        domains = [DOMAINS[code] for code in requested_codes]
+
+    for domain in domains:
         ingest_domain(domain)
 
 
