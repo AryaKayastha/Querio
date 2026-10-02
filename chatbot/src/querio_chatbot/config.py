@@ -19,6 +19,15 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_CHAT_MODEL = os.environ.get("GEMINI_CHAT_MODEL", "gemini-flash-lite-latest")
 GEMINI_EMBEDDING_MODEL = os.environ.get("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-2")
 
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_CHAT_MODEL = os.environ.get("GROQ_CHAT_MODEL", "openai/gpt-oss-120b")
+
+# Chat providers for routing and answering, tried in this order until one succeeds. Providers
+# without an API key are skipped. Embeddings and OCR always use Gemini.
+CHAT_PROVIDERS = tuple(
+    name.strip().lower() for name in os.environ.get("CHAT_PROVIDERS", "gemini,groq").split(",") if name.strip()
+)
+
 
 @dataclass(frozen=True)
 class Domain:
