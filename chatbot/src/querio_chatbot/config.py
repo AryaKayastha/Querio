@@ -19,6 +19,15 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_CHAT_MODEL = os.environ.get("GEMINI_CHAT_MODEL", "gemini-flash-lite-latest")
 GEMINI_EMBEDDING_MODEL = os.environ.get("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-2")
 
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_CHAT_MODEL = os.environ.get("GROQ_CHAT_MODEL", "openai/gpt-oss-120b")
+
+# Chat providers for routing and answering, tried in this order until one succeeds. Providers
+# without an API key are skipped. Embeddings and OCR always use Gemini.
+CHAT_PROVIDERS = tuple(
+    name.strip().lower() for name in os.environ.get("CHAT_PROVIDERS", "gemini,groq").split(",") if name.strip()
+)
+
 
 @dataclass(frozen=True)
 class Domain:
@@ -46,7 +55,12 @@ DOMAINS: dict[str, Domain] = {
     "D6": Domain(
         code="D6",
         name="Leave Management & Attendance",
-        description="Leave policy, attendance shortage/condoning rules, how the leave process works.",
+        description=(
+            "Attendance requirements and penalties for low attendance, leave policy (including medical "
+            "leave) and how the leave process works, attendance/leave for taking part in external or "
+            "university-level events, parent meetings and attendance reports, detention, and the "
+            "attendance undertaking."
+        ),
         data_dir=DATA_ROOT / "D6_leave_attendance",
         guidance_only=True,
     ),
@@ -54,8 +68,11 @@ DOMAINS: dict[str, Domain] = {
         code="D4",
         name="Career, NOC & Placement",
         description=(
-            "Placement guidelines and eligibility, participating companies, job descriptions/roles, "
-            "and the no-objection certificate (NOC) process for internships and placements."
+            "Campus placements: eligibility, placement rules and penalties (one student-one job, dress "
+            "code, conduct, refusing or not joining an offer), the ₹25,000 placement security-deposit "
+            "cheque and parent undertaking, drive types (CDPC, self-sourced, pool campus), participating "
+            "companies and packages, job descriptions/roles, and the no-objection certificate (NOC) "
+            "process for internships and placements."
         ),
         data_dir=DATA_ROOT / "D4_career_noc",
         guidance_only=True,

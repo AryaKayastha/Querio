@@ -51,11 +51,15 @@ NEGATION_CUES = [
     "not sure if", "not sure whether", "unsure if", "unsure whether",
     "don't know if", "do not know if", "not know whether",
     "haven't confirmed", "have not confirmed",
+    # Indirect questions ("find out whether X has been approved") point the student at the
+    # status rather than asserting it.
+    "whether", "tell you if", "find out if", "check if", "see if",
 ]
 
 
 def _assert_no_confirmation_language(answer: str) -> None:
-    lowered = answer.lower()
+    # Some models write typographic apostrophes ("don’t"); normalize so the cues still match.
+    lowered = answer.lower().replace("’", "'").replace("‘", "'")
     for phrase in FORBIDDEN_CONFIRMATION_PHRASES:
         search_from = 0
         while True:
