@@ -32,6 +32,24 @@ def test_flags_unhedged_action_claim():
         _assert_no_confirmation_language("I have submitted your leave application for you.")
 
 
+def test_allows_denial_written_with_typographic_apostrophe():
+    _assert_no_confirmation_language(
+        "I don’t have information about whether your specific leave request has been approved."
+    )
+
+
+def test_allows_indirect_question_about_status():
+    _assert_no_confirmation_language(
+        "To find out whether your leave has been approved, contact your class coordinator."
+    )
+    _assert_no_confirmation_language("The department office can tell you if the request has been approved.")
+
+
+def test_hedge_after_the_claim_does_not_excuse_it():
+    with pytest.raises(AssertionError):
+        _assert_no_confirmation_language("Your leave has been approved, so check if anything else is pending.")
+
+
 def test_negation_must_be_in_the_same_sentence():
     # The negation cue is in an earlier, unrelated sentence -- shouldn't excuse a later
     # unhedged claim in a different sentence.

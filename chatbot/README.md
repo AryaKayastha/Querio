@@ -2,7 +2,7 @@
 
 Domain router + retrieval engine + LLM integration for Querio. Currently scoped to **D4 (Career, NOC & Placement)**, **D5 (Formal Education)**, and **D6 (Leave Management & Attendance)** — the domains with usable source data. Adding D1–D3 later means: drop their documents in `../data/<domain>/`, add the domain to `DOMAINS` in `src/querio_chatbot/config.py`, and ingest it — no router/retrieval code changes required.
 
-Stack: **Gemini** (LLM + embeddings) · **LangGraph** (classify → retrieve → answer graph) · **Chroma** (per-domain vector store namespaces) · **FastAPI** (service boundary for `backend/` to call).
+Stack: **Gemini** (LLM + embeddings) · **Groq** (fallback LLM) · **LangGraph** (classify → retrieve → answer graph) · **Chroma** (per-domain vector store namespaces) · **FastAPI** (service boundary for `backend/` to call).
 
 ## Setup
 
@@ -15,7 +15,7 @@ pip install -e .
 copy .env.example .env
 ```
 
-Fill in `GEMINI_API_KEY` in `.env`.
+Fill in `GEMINI_API_KEY` in `.env`. Optionally add `GROQ_API_KEY` (free at console.groq.com): routing and answers then fall back to Groq whenever a Gemini call fails (timeout, overload, quota). `CHAT_PROVIDERS` sets the order — e.g. `groq,gemini` to make Groq primary. Embeddings and OCR always use Gemini, since the vector store holds Gemini embeddings.
 
 ## Ingest documents into the vector store
 

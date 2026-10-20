@@ -10,7 +10,7 @@ from querio_chatbot.config import (
     HISTORY_TURN_LIMIT,
     INACTIVE_DOMAIN_TOPICS,
 )
-from querio_chatbot.llm.gemini_client import get_chat_model
+from querio_chatbot.llm.chat import invoke_with_fallback
 from querio_chatbot.retrieval.retriever import retrieve
 
 NO_ANSWER_MESSAGE = (
@@ -118,8 +118,7 @@ def classify_node(state: ChatState) -> ChatState:
         f"{history_section}\n"
         f"Question: {state['query']}"
     )
-    structured_llm = get_chat_model().with_structured_output(Classification)
-    result = structured_llm.invoke(prompt)
+    result = invoke_with_fallback(lambda model: model.with_structured_output(Classification), prompt)
     return {
         "domain": result.domain,
         "confidence": result.confidence,
@@ -180,7 +179,7 @@ def generate_node(state: ChatState) -> ChatState:
         + history_section
         + f"\n\nContext:\n{context}\n\nQuestion: {state['query']}\n\nAnswer:"
     )
-    response = get_chat_model().invoke(prompt)
+    response = invoke_with_fallback(lambda model: model, prompt)
     return {"answer": _extract_text(response.content)}
 
 
