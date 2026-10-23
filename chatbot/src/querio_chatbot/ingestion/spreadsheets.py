@@ -267,13 +267,15 @@ CERT = "Certification Name"
 def _cert_record(row: Row, book: Book) -> str | None:
     if not row[CERT]:
         return None
+    validity = row["Validity Period"]
+    if validity and not validity.lower().startswith(("does not", "no ", "never", "lifetime")):
+        validity = f"valid for {validity}"
     fields = [  # most useful first, in case the record is split across chunks
         ("Official link", row["Official Link"]),
         ("Exam cost", row["Exam Cost (USD)"]),
         ("Prerequisites", _joined(row["Prerequisites / Eligibility"],
                                    f"recommended: {row['Recommended Experience']}" if row["Recommended Experience"] else "")),
-        ("Exam format", _joined(row["Exam Format"], row["Duration / Time Limit"],
-                                f"valid for {row['Validity Period']}" if row["Validity Period"] else "")),
+        ("Exam format", _joined(row["Exam Format"], row["Duration / Time Limit"], validity)),
         ("Best for", row["Best For (Career Path)"]),
         ("Student discounts / free resources", row["Student Discounts / Free Resources"]),
         ("Topics", row["Topics Covered"]),

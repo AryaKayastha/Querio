@@ -200,7 +200,7 @@ Microsoft Azure Fundamentals (AZ-900) is a Foundational Cloud Computing certific
 - Official link: https://learn.microsoft.com/en-us/credentials/certifications/azure-fundamentals/
 - Exam cost: ~$165
 - Prerequisites: None; recommended: None
-- Exam format: 40–60 questions, multiple-choice; 45 minutes; valid for Does not expire
+- Exam format: 40–60 questions, multiple-choice; 45 minutes; Does not expire
 - Best for: Cloud Engineer, Azure Developer, Any IT Role
 - Student discounts / free resources: Azure for Students: $100 free credits + free services; exam discounts available
 
@@ -465,7 +465,7 @@ Oracle Java Foundations Associate is a Foundational Software Development certifi
 - Official link: https://education.oracle.com/java-foundations/pexam_1Z0-811
 - Exam cost: ~$95
 - Prerequisites: None; recommended: None
-- Exam format: Multiple-choice; ~60 minutes; valid for Does not expire
+- Exam format: Multiple-choice; ~60 minutes; Does not expire
 - Best for: Junior Java Developer, CS Student
 - Student discounts / free resources: Oracle Academy resources
 - Topics: Basic Java syntax, OOP fundamentals, data types, control flow
@@ -480,7 +480,7 @@ Oracle Certified Professional: Java SE Developer is a Professional Software Deve
 - Official link: https://education.oracle.com/oracle-certified-professional-java-se-17-developer/trackp_OCPJSE17
 - Exam cost: ~$245
 - Prerequisites: None; recommended: Solid Java programming experience
-- Exam format: Multiple-choice; 90 minutes; valid for Does not expire (tied to Java version)
+- Exam format: Multiple-choice; 90 minutes; Does not expire (tied to Java version)
 - Best for: Java Developer, Backend Developer, Software Engineer
 
 ## Oracle Certified Professional: Java SE Developer (part 2 of 2)
@@ -548,7 +548,7 @@ IBM Data Science Professional Certificate is a Foundational Data Science & AI/ML
 - Official link: https://www.coursera.org/professional-certificates/ibm-data-science
 - Exam cost: ~$39–$59/month (Coursera)
 - Prerequisites: None (no prior CS or programming needed); recommended: None
-- Exam format: Course completion + capstone project; 3–11 months (self-paced); valid for Does not expire
+- Exam format: Course completion + capstone project; 3–11 months (self-paced); Does not expire
 - Best for: Data Analyst, Junior Data Scientist
 - Student discounts / free resources: Coursera financial aid available
 
@@ -567,7 +567,7 @@ Google Data Analytics Professional Certificate is a Foundational Data Science & 
 - Official link: https://grow.google/certificates/data-analytics/
 - Exam cost: ~$39–$49/month (Coursera)
 - Prerequisites: None; recommended: None
-- Exam format: Course completion + portfolio projects; ~6 months; valid for Does not expire
+- Exam format: Course completion + portfolio projects; ~6 months; Does not expire
 - Best for: Data Analyst, Business Analyst
 - Student discounts / free resources: Coursera financial aid
 - Topics: Spreadsheets, SQL, R programming, Tableau, data cleaning, analysis, visualization
@@ -582,7 +582,7 @@ DeepLearning.AI TensorFlow Developer Professional Certificate is an Intermediate
 - Official link: https://www.coursera.org/professional-certificates/tensorflow-in-practice
 - Exam cost: ~$49/month (Coursera)
 - Prerequisites: Basic Python knowledge recommended; recommended: Basic Python
-- Exam format: Course completion; ~4 months; valid for Does not expire
+- Exam format: Course completion; ~4 months; Does not expire
 - Best for: ML Engineer, Deep Learning Engineer
 - Student discounts / free resources: Coursera financial aid
 
@@ -601,7 +601,7 @@ DeepLearning.AI Deep Learning Specialization is an Intermediate–Advanced Data 
 - Official link: https://www.coursera.org/specializations/deep-learning
 - Exam cost: ~$49/month (Coursera)
 - Prerequisites: Basic Python, linear algebra, calculus; recommended: Programming fundamentals
-- Exam format: Course completion (5 courses); ~5 months; valid for Does not expire
+- Exam format: Course completion (5 courses); ~5 months; Does not expire
 - Best for: ML Engineer, AI Researcher, Deep Learning Engineer
 
 ## DeepLearning.AI Deep Learning Specialization (part 2 of 2)
@@ -764,7 +764,7 @@ Oracle Database Foundations Associate is a Foundational Databases certification 
 - Official link: https://education.oracle.com/oracle-database-foundations/pexam_1Z0-006
 - Exam cost: ~$95
 - Prerequisites: None; recommended: None
-- Exam format: Multiple-choice; ~60 minutes; valid for Does not expire
+- Exam format: Multiple-choice; ~60 minutes; Does not expire
 - Best for: DBA, Backend Developer
 - Student discounts / free resources: Oracle Academy resources
 - Topics: Relational database concepts, SQL basics, Oracle Cloud database services
@@ -779,7 +779,7 @@ Oracle Certified Professional: MySQL DBA is a Professional Databases certificati
 - Official link: https://education.oracle.com/mysql-80-database-administrator/pexam_1Z0-908
 - Exam cost: ~$245
 - Prerequisites: None; recommended: MySQL administration experience
-- Exam format: Multiple-choice; 90 minutes; valid for Does not expire
+- Exam format: Multiple-choice; 90 minutes; Does not expire
 - Best for: Database Administrator, Backend Developer
 - Student discounts / free resources: Oracle Academy
 - Topics: MySQL installation, security, backup, performance tuning, replication
@@ -828,7 +828,7 @@ Meta Front-End Developer Professional Certificate is a Beginner Web Dev & UX Des
 - Official link: https://www.coursera.org/professional-certificates/meta-front-end-developer
 - Exam cost: ~$39–$59/month (Coursera)
 - Prerequisites: None; recommended: None
-- Exam format: Course completion + projects; 5–8 months; valid for Does not expire
+- Exam format: Course completion + projects; 5–8 months; Does not expire
 - Best for: Front-End Developer, Web Developer
 - Student discounts / free resources: Coursera financial aid available
 
@@ -847,7 +847,7 @@ Meta Back-End Developer Professional Certificate is a Beginner Web Dev & UX Desi
 - Official link: https://www.coursera.org/professional-certificates/meta-back-end-developer
 - Exam cost: ~$39–$59/month (Coursera)
 - Prerequisites: None; recommended: None
-- Exam format: Course completion + projects; 5–8 months; valid for Does not expire
+- Exam format: Course completion + projects; 5–8 months; Does not expire
 - Best for: Back-End Developer, Full-Stack Developer
 - Student discounts / free resources: Coursera financial aid
 - Topics: Python, Django, databases, APIs, version control, cloud deployment
@@ -862,7 +862,7 @@ Google UX Design Professional Certificate is a Beginner Web Dev & UX Design cert
 - Official link: https://grow.google/certificates/ux-design/
 - Exam cost: ~$39–$49/month (Coursera)
 - Prerequisites: None; recommended: None
-- Exam format: Course completion + 3 portfolio projects; 3–6 months; valid for Does not expire
+- Exam format: Course completion + 3 portfolio projects; 3–6 months; Does not expire
 - Best for: UX Designer, Product Designer, UI/UX Researcher
 - Student discounts / free resources: Coursera financial aid
 
@@ -881,7 +881,7 @@ freeCodeCamp Certifications is a Beginner–Intermediate Web Dev & UX Design cer
 - Official link: https://www.freecodecamp.org/
 - Exam cost: 100% FREE
 - Prerequisites: None; recommended: None
-- Exam format: Project-based (5 projects per cert); Self-paced; valid for Does not expire
+- Exam format: Project-based (5 projects per cert); Self-paced; Does not expire
 - Best for: Web Developer, Front-End Developer
 - Student discounts / free resources: Completely free — no payment required
 - Topics: Responsive Web Design; JavaScript Algorithms & DS; Front-End Libraries; APIs & Microservices; Data Visualization
@@ -896,7 +896,7 @@ CompTIA Tech+ (formerly ITF+) is a Pre-Entry / Beginner IT Fundamentals & Suppor
 - Official link: https://www.comptia.org/certifications/tech
 - Exam cost: ~$136
 - Prerequisites: None; recommended: None
-- Exam format: 75 questions, multiple-choice; 60 minutes; valid for Does not expire
+- Exam format: 75 questions, multiple-choice; 60 minutes; Does not expire
 - Best for: Exploring IT/CS careers
 - Student discounts / free resources: CompTIA Academic pricing
 - Topics: IT concepts, infrastructure, software, security, database fundamentals
@@ -930,7 +930,7 @@ Google IT Support Professional Certificate is a Beginner IT Fundamentals & Suppo
 - Official link: https://grow.google/certificates/it-support/
 - Exam cost: ~$39–$49/month (Coursera)
 - Prerequisites: None; recommended: None
-- Exam format: Course completion; ~6 months; valid for Does not expire
+- Exam format: Course completion; ~6 months; Does not expire
 - Best for: IT Support Specialist, Help Desk
 - Student discounts / free resources: Coursera financial aid
 - Topics: Networking, operating systems, system administration, security, troubleshooting
@@ -945,7 +945,7 @@ Google IT Automation with Python Professional Certificate is a Beginner–Interm
 - Official link: https://grow.google/certificates/it-automation/
 - Exam cost: ~$39–$49/month (Coursera)
 - Prerequisites: Basic IT knowledge (Google IT Support cert recommended); recommended: Basic IT
-- Exam format: Course completion + projects; ~6 months; valid for Does not expire
+- Exam format: Course completion + projects; ~6 months; Does not expire
 - Best for: IT Automation Specialist, Junior DevOps, Sysadmin
 
 ## Google IT Automation with Python Professional Certificate (part 2 of 2)
@@ -983,7 +983,7 @@ Professional Scrum Master I (PSM I) is an Entry-Level Project Management & Agile
 - Official link: https://www.scrum.org/professional-scrum-master-i-certification
 - Exam cost: ~$200
 - Prerequisites: None (no mandatory training required); recommended: None
-- Exam format: 80 questions, online; 60 minutes; valid for Lifetime (no renewal needed)
+- Exam format: 80 questions, online; 60 minutes; Lifetime (no renewal needed)
 - Best for: Scrum Master, Agile Team Member
 - Student discounts / free resources: None specific
 
