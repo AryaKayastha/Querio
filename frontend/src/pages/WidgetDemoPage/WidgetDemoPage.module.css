@@ -13,37 +13,42 @@
 .exitLink {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background-color: var(--color-ink);
-  color: #ffffff;
-  font-size: 11.5px;
+  gap: 7px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: 12px;
   font-weight: 600;
-  padding: 8px 14px;
+  padding: 9px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-line);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .exitLink:hover {
-  background-color: var(--color-accent);
+  background-color: var(--color-surface-elevated);
+  border-color: rgba(108, 92, 231, 0.3);
 }
 
 .siteNav {
-  background-color: var(--color-ink);
+  background: var(--color-surface);
   padding: 18px 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-bottom: 1px solid var(--color-line);
 }
 
 .siteBrand {
-  color: #ffffff;
+  color: var(--color-ink);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .siteLinks {
   display: flex;
-  gap: 26px;
-  font-size: 12px;
-  color: #b7c0cc;
+  gap: 28px;
+  font-size: 13px;
+  color: var(--color-ink-soft);
 }
 
 .siteBody {
@@ -53,15 +58,17 @@
 }
 
 .pageHeading {
-  height: 22px;
+  height: 24px;
   width: 320px;
-  background-color: var(--color-line);
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-sm);
   margin-bottom: 16px;
 }
 
 .pageLine {
   height: 10px;
-  background-color: var(--color-line);
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-xs);
   margin-bottom: 10px;
 }
 
@@ -77,14 +84,15 @@
 }
 
 .placeholderCard {
-  height: 110px;
-  background-color: #ffffff;
+  height: 120px;
+  background: var(--color-surface);
   border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
 }
 
 .hintText {
   margin-top: 40px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-muted);
   text-align: center;
 }

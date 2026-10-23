@@ -1,21 +1,23 @@
 .item {
-  padding: 9px 10px;
-  font-size: 11.5px;
-  color: #b7c0cc;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: var(--color-ink-soft);
   text-align: left;
   width: 100%;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .item:hover {
-  background-color: #232e3a;
-  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--color-ink);
 }
 
 .item.active {
-  background-color: #26313d;
-  color: #ffffff;
+  background-color: var(--color-accent-soft);
+  color: var(--color-ink);
+  font-weight: 500;
 }

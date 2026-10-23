@@ -1,11 +1,9 @@
-import { useRef, useState } from "react";
-import { PaperclipIcon, MicIcon, SendIcon } from "../../assets/icons/index.js";
+import { useState } from "react";
+import { SendIcon } from "../../assets/icons/index.js";
 import styles from "./ChatInput.module.css";
 
 const ChatInput = ({ onSend, placeholder = "Type your question…", disabled = false }) => {
   const [textValue, setTextValue] = useState("");
-  const [isListening, setIsListening] = useState(false);
-  const fileInputRef = useRef(null);
 
   const handleSubmit = () => {
     const trimmedValue = textValue.trim();
@@ -25,32 +23,6 @@ const ChatInput = ({ onSend, placeholder = "Type your question…", disabled = f
     }
   };
 
-  const handleAttachClick = () => {
-    fileInputRef.current.click();
-  };
-
-  const handleFileSelected = (event) => {
-    const selectedFile = event.target.files[0];
-
-    if (selectedFile) {
-      setTextValue((previousValue) =>
-        previousValue.length > 0
-          ? `${previousValue} [attached: ${selectedFile.name}]`
-          : `[attached: ${selectedFile.name}]`
-      );
-    }
-
-    event.target.value = "";
-  };
-
-  const handleMicClick = () => {
-    setIsListening(true);
-
-    window.setTimeout(() => {
-      setIsListening(false);
-    }, 1500);
-  };
-
   return (
     <div className={styles.inputBar}>
       <input
@@ -62,34 +34,6 @@ const ChatInput = ({ onSend, placeholder = "Type your question…", disabled = f
         onKeyDown={handleKeyDown}
         disabled={disabled}
       />
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{ display: "none" }}
-        onChange={handleFileSelected}
-      />
-
-      <button
-        type="button"
-        className={styles.iconButton}
-        onClick={handleAttachClick}
-        aria-label="Attach a file"
-        title="Attach a file"
-      >
-        <PaperclipIcon size={16} />
-      </button>
-
-      <button
-        type="button"
-        className={styles.iconButton}
-        onClick={handleMicClick}
-        aria-label="Use voice input"
-        title="Use voice input"
-        style={{ color: isListening ? "var(--color-highlight)" : undefined }}
-      >
-        <MicIcon size={16} />
-      </button>
 
       <button
         type="button"

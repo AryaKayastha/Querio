@@ -2,27 +2,41 @@
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 54px;
-  height: 54px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-ink);
+  background: var(--gradient-brand);
   color: #ffffff;
+  border-radius: var(--radius-full);
   z-index: 40;
+  box-shadow: 0 4px 20px rgba(108, 92, 231, 0.4);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .bubble:hover {
-  background-color: var(--color-accent);
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(108, 92, 231, 0.55);
+}
+
+.bubble:active {
+  transform: scale(0.95);
 }
 
 .notificationDot {
   position: absolute;
-  top: -3px;
-  right: -3px;
+  top: -2px;
+  right: -2px;
   width: 14px;
   height: 14px;
   border-radius: 50%;
   background-color: var(--color-highlight);
   border: 2px solid var(--color-bg);
+  animation: notifPulse 2s ease-in-out infinite;
+}
+
+@keyframes notifPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(245, 166, 35, 0); }
 }

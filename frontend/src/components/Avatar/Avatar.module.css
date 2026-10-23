@@ -6,18 +6,28 @@
   font-weight: 700;
   font-family: var(--font-body);
   color: #ffffff;
-  background-color: var(--color-accent);
+  background: var(--gradient-brand);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.avatar:hover {
+  transform: scale(1.05);
 }
 
 .avatar.dark {
-  background-color: var(--color-ink);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-sm);
 }
 
 .avatar.gold {
-  background-color: var(--color-highlight);
+  background: linear-gradient(135deg, #f5a623 0%, #f7c948 100%);
+  box-shadow: 0 2px 12px rgba(245, 166, 35, 0.35);
 }
 
 .avatar.person {
-  background-color: #4a5a6e;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }

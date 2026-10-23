@@ -1,24 +1,26 @@
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10.5px;
+  gap: 5px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 4px 9px;
+  padding: 5px 12px;
   white-space: nowrap;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.02em;
 }
 
 .pill.online {
-  background-color: #e4efe9;
-  color: #3e7a5a;
+  background-color: rgba(52, 211, 153, 0.12);
+  color: #34d399;
 }
 
 .pill.degraded {
-  background-color: #f7ecd9;
-  color: #9a6a1f;
+  background-color: rgba(245, 166, 35, 0.12);
+  color: #f5a623;
 }
 
 .pill.offline {
-  background-color: #f3e4e4;
-  color: #8a3f3f;
+  background-color: rgba(248, 113, 113, 0.12);
+  color: #f87171;
 }
