@@ -1,3 +1,5 @@
+import re
+from difflib import SequenceMatcher
 from typing import Literal, Optional, TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -182,8 +184,27 @@ def generate_node(state: ChatState) -> ChatState:
     response = invoke_with_fallback(lambda model: model, prompt)
     answer = _extract_text(response.content)
     if domain and domain.answer_disclaimer:
-        answer = f"{answer.rstrip()}\n\n{domain.answer_disclaimer}"
+        answer = _append_disclaimer(answer, domain.answer_disclaimer)
     return {"answer": answer}
+
+
+def _plain(text: str) -> str:
+    return " ".join(re.sub(r"[*_`>]", " ", text).lower().split())
+
+
+def _append_disclaimer(answer: str, disclaimer: str) -> str:
+    """Append the domain disclaimer exactly once.
+
+    Earlier answers in the conversation end with the disclaimer, and the model imitates them, so its
+    own (sometimes reworded) copy is dropped before the official one is appended.
+    """
+    target = _plain(disclaimer)
+    kept = [
+        line for line in answer.splitlines()
+        if not line.strip() or SequenceMatcher(None, _plain(line), target).ratio() < 0.8
+    ]
+    body = "\n".join(kept).rstrip()
+    return f"{body}\n\n{disclaimer}"
 
 
 def build_graph():
