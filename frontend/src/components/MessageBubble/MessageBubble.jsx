@@ -55,25 +55,36 @@ const stripCitations = (text, sources) => {
     .trim();
 };
 
-const dedupeSources = (sources) => {
-  const seen = new Set();
-  return sources.filter((source) => {
-    const key = `${source.source_name}|${source.source_section}`;
-    if (seen.has(key)) {
-      return false;
+// Students only need to know which documents an answer came from -- not the retrieved chunk
+// ("NSS activities (part 5 of 7)", "Page 12") -- so show one chip per document, by name.
+const toDocuments = (sources) => {
+  const documents = new Map();
+  sources.forEach((source) => {
+    const name = (source.source_name || "").replace(/_/gu, " ").replace(/\s+/gu, " ").trim();
+    if (!name) {
+      return;
     }
-    seen.add(key);
-    return true;
+    const existing = documents.get(name);
+    if (!existing) {
+      documents.set(name, { name, url: source.source_url });
+    } else if (!isSafeUrl(existing.url) && isSafeUrl(source.source_url)) {
+      existing.url = source.source_url;
+    }
   });
+  return [...documents.values()];
 };
 
 const MessageBubble = ({ message, onChipSelect }) => {
   const isBot = message.sender === "bot";
-  const rawSources = Array.isArray(message.sources) ? message.sources : [];
-  const sources = useMemo(() => dedupeSources(rawSources), [rawSources]);
+  const sources = useMemo(
+    () => (Array.isArray(message.sources) ? message.sources : []),
+    [message.sources]
+  );
+  const documents = useMemo(() => toDocuments(sources), [sources]);
   const hasChips = Boolean(message.chips && message.chips.length > 0);
   const [selectedSource, setSelectedSource] = useState(null);
 
+  // Citation matching needs each chunk's section, so it uses the full source list.
   const displayText = useMemo(
     () => (isBot && sources.length > 0 ? stripCitations(message.text, sources) : message.text),
     [isBot, message.text, sources]
@@ -88,43 +99,35 @@ const MessageBubble = ({ message, onChipSelect }) => {
           {isBot ? <ReactMarkdown>{displayText}</ReactMarkdown> : message.text}
         </div>
 
-        {isBot && sources.length > 0 && (
+        {isBot && documents.length > 0 && (
           <div className={styles.sources} aria-label="Sources">
             <span className={styles.sourcesLabel}>Sources</span>
-            {sources.map((source) => {
-              const label = source.source_section
-                ? `${source.source_name} · ${source.source_section}`
-                : source.source_name;
-              const sourceLink = isSafeUrl(source.source_url);
-
-              return sourceLink ? (
-                <a
-                  key={`${source.source_name}-${source.source_section}`}
-                  className={styles.sourceLink}
-                  href={source.source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {label}
-                </a>
-              ) : (
-                <button
-                  key={`${source.source_name}-${source.source_section}`}
-                  type="button"
-                  className={styles.sourceLink}
-                  onClick={() => setSelectedSource(source)}
-                >
-                  {label}
-                </button>
-              );
-            })}
+            {documents.map((document) => (isSafeUrl(document.url) ? (
+              <a
+                key={document.name}
+                className={styles.sourceLink}
+                href={document.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {document.name}
+              </a>
+            ) : (
+              <button
+                key={document.name}
+                type="button"
+                className={styles.sourceLink}
+                onClick={() => setSelectedSource(document)}
+              >
+                {document.name}
+              </button>
+            )))}
           </div>
         )}
 
         {selectedSource && (
           <div className={styles.sourceDetails} role="status">
-            <strong>{selectedSource.source_name}</strong>
-            {selectedSource.source_section && <span>{selectedSource.source_section}</span>}
+            <strong>{selectedSource.name}</strong>
             <span>This source is available in Querio’s knowledge base but has no public link yet.</span>
             <button type="button" onClick={() => setSelectedSource(null)}>Close</button>
           </div>

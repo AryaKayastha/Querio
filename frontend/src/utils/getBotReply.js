@@ -33,9 +33,6 @@ const normalizeSources = (sources) => {
   return [...uniqueSources.values()];
 };
 
-const sourcesToChips = (sources) =>
-  [...new Set(sources.map((source) => source.source_name).filter(Boolean))];
-
 export const getBotReply = async (messageText, sessionId) => {
   try {
     const response = await sendChatMessage(messageText, sessionId);
@@ -45,15 +42,16 @@ export const getBotReply = async (messageText, sessionId) => {
       : DEFAULT_REPLY;
 
     const sources = normalizeSources(response.sources);
-    const chips = sourcesToChips(sources);
 
     const confidenceValue = Number(response.confidence);
     const confidence = Number.isFinite(confidenceValue) ? confidenceValue : 0;
 
+    // Quick-reply chips used to repeat the source document names, and clicking one sent that
+    // name as a new question; the Sources row already lists the documents.
     return {
       reply,
       sources,
-      chips,
+      chips: [],
       meta: {
         domain: typeof response.domain === "string" ? response.domain : "",
         confidence,
