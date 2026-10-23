@@ -46,10 +46,11 @@ const stripCitations = (text, sources) => {
   }
   result += text.slice(lastIndex);
 
+  // Only tidy gaps inside a line: leading indentation is what makes a markdown sub-list, and
+  // stripping it flattened nested lists (headings and their details rendered as siblings).
   return result
     .replace(/[ \t]+([.,;:!?])/gu, "$1") // drop the space left behind before punctuation
-    .replace(/[ \t]{2,}/gu, " ")
-    .replace(/\n[ \t]+/gu, "\n")
+    .replace(/(\S)[ \t]{2,}/gu, "$1 ")
     .replace(/[ \t]+\n/gu, "\n")
     .trim();
 };
