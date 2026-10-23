@@ -1,6 +1,7 @@
 langchain
 langchain-google-genai
 langchain-groq
+openpyxl
 langchain-chroma
 langchain-text-splitters
 langgraph

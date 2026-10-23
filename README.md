@@ -23,7 +23,7 @@ Querio/
 └── Project_Details/
 ```
 
-Current target: end-to-end for **D4 (Career, NOC & Placement)**, **D5 (Formal Education)**, and **D6 (Leave Management & Attendance)**. D1–D3 follow as their data is collected.
+All six domains are live end-to-end: **D1 (Clubs, NSS & NCC)**, **D2 (Certifications)**, **D3 (Extra-curricular Activities & Sports** — currently CSPIT Computer Engineering data only, and answers say so), **D4 (Career, NOC & Placement)**, **D5 (Formal Education)**, and **D6 (Leave Management & Attendance)**.
 
 ## Integration contract
 

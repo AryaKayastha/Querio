@@ -8,7 +8,6 @@ from querio_chatbot.config import (
     DOMAINS,
     GUIDANCE_ONLY_SYSTEM_NOTE,
     HISTORY_TURN_LIMIT,
-    INACTIVE_DOMAIN_TOPICS,
 )
 from querio_chatbot.llm.chat import invoke_with_fallback
 from querio_chatbot.retrieval.retriever import retrieve
@@ -111,10 +110,8 @@ def classify_node(state: ChatState) -> ChatState:
     prompt = (
         "You are a routing classifier for a college assistant. The assistant currently only "
         f"handles these domains:\n{domain_descriptions}\n\n"
-        f"Other real topics also exist at the college -- {INACTIVE_DOMAIN_TOPICS} -- but are "
-        "NOT handled yet. If the question is about one of those, or anything else outside the "
-        "domains listed above, respond UNROUTED. Do not force a question into a domain just "
-        "because it's the closest available option.\n"
+        "If the question is about anything outside the domains listed above, respond UNROUTED. "
+        "Do not force a question into a domain just because it's the closest available option.\n"
         f"{history_section}\n"
         f"Question: {state['query']}"
     )
@@ -164,6 +161,9 @@ def generate_node(state: ChatState) -> ChatState:
     ]
     if state.get("guidance_only"):
         system_instructions.append(GUIDANCE_ONLY_SYSTEM_NOTE)
+    domain = DOMAINS.get(state.get("domain"))
+    if domain and domain.answer_instructions:
+        system_instructions.append(domain.answer_instructions)
 
     history_block = _format_history(state.get("history"))
     if history_block:
@@ -180,7 +180,10 @@ def generate_node(state: ChatState) -> ChatState:
         + f"\n\nContext:\n{context}\n\nQuestion: {state['query']}\n\nAnswer:"
     )
     response = invoke_with_fallback(lambda model: model, prompt)
-    return {"answer": _extract_text(response.content)}
+    answer = _extract_text(response.content)
+    if domain and domain.answer_disclaimer:
+        answer = f"{answer.rstrip()}\n\n{domain.answer_disclaimer}"
+    return {"answer": answer}
 
 
 def build_graph():
