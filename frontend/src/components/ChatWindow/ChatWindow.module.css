@@ -6,20 +6,4 @@
   flex-direction: column;
   gap: 18px;
   background: var(--color-bg);
-  position: relative;
-}
-
-/* Subtle top gradient glow */
-.window::before {
-  content: "";
-  position: sticky;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 40px;
-  background: linear-gradient(180deg, var(--color-bg) 0%, transparent 100%);
-  pointer-events: none;
-  z-index: 1;
-  flex-shrink: 0;
-  margin-bottom: -40px;
 }
