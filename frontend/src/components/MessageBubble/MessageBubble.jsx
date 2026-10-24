@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import Avatar from "../Avatar/Avatar.jsx";
 import QuickReplyChips from "../QuickReplyChips/QuickReplyChips.jsx";
 import styles from "./MessageBubble.module.css";
@@ -15,6 +16,14 @@ const normalizeCitationText = (value) => value
   .toLowerCase();
 
 const isSafeUrl = (value) => /^https?:\/\//iu.test(value || "");
+
+// Links in answers (club websites, official certification pages) open in a new tab so the chat
+// stays put. remark-gfm also turns bare https:// URLs into links and renders tables.
+const markdownComponents = {
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+  ),
+};
 
 const findSource = (citationText, sources) => {
   const normalizedText = normalizeCitationText(citationText);
@@ -84,11 +93,15 @@ const MessageBubble = ({ message, onChipSelect }) => {
   const hasChips = Boolean(message.chips && message.chips.length > 0);
   const [selectedSource, setSelectedSource] = useState(null);
 
-  // Citation matching needs each chunk's section, so it uses the full source list.
-  const displayText = useMemo(
-    () => (isBot && sources.length > 0 ? stripCitations(message.text, sources) : message.text),
-    [isBot, message.text, sources]
-  );
+  // Citation matching needs each chunk's section, so it uses the full source list. The knowledge
+  // base separates names from details with " -- ", which answers echo; show it as a dash.
+  const displayText = useMemo(() => {
+    if (!isBot) {
+      return message.text;
+    }
+    const text = sources.length > 0 ? stripCitations(message.text, sources) : message.text;
+    return text.replace(/ -- /gu, " – ");
+  }, [isBot, message.text, sources]);
 
   return (
     <div className={`${styles.messageRow} ${isBot ? "" : styles.user}`}>
@@ -96,7 +109,9 @@ const MessageBubble = ({ message, onChipSelect }) => {
 
       <div className={styles.bubbleColumn}>
         <div className={`${styles.bubble} ${isBot ? styles.bot : styles.user}`}>
-          {isBot ? <ReactMarkdown>{displayText}</ReactMarkdown> : message.text}
+          {isBot ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{displayText}</ReactMarkdown>
+          ) : message.text}
         </div>
 
         {isBot && documents.length > 0 && (

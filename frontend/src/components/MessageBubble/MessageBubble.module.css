@@ -34,9 +34,16 @@
   white-space: pre-wrap;
 }
 
-/* Markdown-rendered answer body (bot bubble only -- user text stays plain). */
+/* Markdown-rendered answer body (bot bubble only -- user text stays plain).
+   index.css resets list markers and link styling app-wide (right for nav and the sidebar), so
+   answers restore them here: without bullets nested lists lose their structure, and links read as
+   plain text. */
+.bubble.bot {
+  overflow-wrap: anywhere;
+}
+
 .bubble.bot :global(p) {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
 }
 
 .bubble.bot :global(p:last-child) {
@@ -45,12 +52,29 @@
 
 .bubble.bot :global(ul),
 .bubble.bot :global(ol) {
-  margin: 0 0 8px;
-  padding-left: 20px;
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+
+.bubble.bot :global(ul) {
+  list-style: disc;
+}
+
+.bubble.bot :global(ol) {
+  list-style: decimal;
+}
+
+.bubble.bot :global(li ul) {
+  list-style: circle;
+}
+
+.bubble.bot :global(li::marker) {
+  color: var(--color-accent);
 }
 
 .bubble.bot :global(li) {
-  margin-bottom: 4px;
+  margin-bottom: 5px;
+  padding-left: 2px;
 }
 
 .bubble.bot :global(li:last-child) {
@@ -59,21 +83,37 @@
 
 .bubble.bot :global(li > ul),
 .bubble.bot :global(li > ol) {
-  margin-top: 4px;
+  margin: 5px 0 0;
+}
+
+.bubble.bot :global(ul:last-child),
+.bubble.bot :global(ol:last-child) {
+  margin-bottom: 0;
 }
 
 .bubble.bot :global(strong) {
-  font-weight: 700;
+  font-weight: 650;
+}
+
+.bubble.bot :global(a) {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 500;
+}
+
+.bubble.bot :global(a:hover) {
+  color: var(--color-ink);
 }
 
 .bubble.bot :global(h1),
 .bubble.bot :global(h2),
 .bubble.bot :global(h3),
 .bubble.bot :global(h4) {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.4;
-  margin: 10px 0 4px;
+  margin: 14px 0 6px;
 }
 
 .bubble.bot :global(h1:first-child),
@@ -81,6 +121,31 @@
 .bubble.bot :global(h3:first-child),
 .bubble.bot :global(h4:first-child) {
   margin-top: 0;
+}
+
+.bubble.bot :global(hr) {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  margin: 12px 0;
+}
+
+.bubble.bot :global(table) {
+  border-collapse: collapse;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+}
+
+.bubble.bot :global(th),
+.bubble.bot :global(td) {
+  border: 1px solid var(--color-line);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.bubble.bot :global(th) {
+  background: rgba(31, 48, 63, 0.05);
+  font-weight: 650;
 }
 
 .bubble.bot :global(code) {
