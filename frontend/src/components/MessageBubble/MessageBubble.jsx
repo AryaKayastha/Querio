@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import Avatar from "../Avatar/Avatar.jsx";
 import QuickReplyChips from "../QuickReplyChips/QuickReplyChips.jsx";
 import styles from "./MessageBubble.module.css";
@@ -15,6 +16,14 @@ const normalizeCitationText = (value) => value
   .toLowerCase();
 
 const isSafeUrl = (value) => /^https?:\/\//iu.test(value || "");
+
+// Links in answers (club websites, official certification pages) open in a new tab so the chat
+// stays put. remark-gfm also turns bare https:// URLs into links and renders tables.
+const markdownComponents = {
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+  ),
+};
 
 const findSource = (citationText, sources) => {
   const normalizedText = normalizeCitationText(citationText);
@@ -46,37 +55,53 @@ const stripCitations = (text, sources) => {
   }
   result += text.slice(lastIndex);
 
+  // Only tidy gaps inside a line: leading indentation is what makes a markdown sub-list, and
+  // stripping it flattened nested lists (headings and their details rendered as siblings).
   return result
     .replace(/[ \t]+([.,;:!?])/gu, "$1") // drop the space left behind before punctuation
-    .replace(/[ \t]{2,}/gu, " ")
-    .replace(/\n[ \t]+/gu, "\n")
+    .replace(/(\S)[ \t]{2,}/gu, "$1 ")
     .replace(/[ \t]+\n/gu, "\n")
     .trim();
 };
 
-const dedupeSources = (sources) => {
-  const seen = new Set();
-  return sources.filter((source) => {
-    const key = `${source.source_name}|${source.source_section}`;
-    if (seen.has(key)) {
-      return false;
+// Students only need to know which documents an answer came from -- not the retrieved chunk
+// ("NSS activities (part 5 of 7)", "Page 12") -- so show one chip per document, by name.
+const toDocuments = (sources) => {
+  const documents = new Map();
+  sources.forEach((source) => {
+    const name = (source.source_name || "").replace(/_/gu, " ").replace(/\s+/gu, " ").trim();
+    if (!name) {
+      return;
     }
-    seen.add(key);
-    return true;
+    const existing = documents.get(name);
+    if (!existing) {
+      documents.set(name, { name, url: source.source_url });
+    } else if (!isSafeUrl(existing.url) && isSafeUrl(source.source_url)) {
+      existing.url = source.source_url;
+    }
   });
+  return [...documents.values()];
 };
 
 const MessageBubble = ({ message, onChipSelect }) => {
   const isBot = message.sender === "bot";
-  const rawSources = Array.isArray(message.sources) ? message.sources : [];
-  const sources = useMemo(() => dedupeSources(rawSources), [rawSources]);
+  const sources = useMemo(
+    () => (Array.isArray(message.sources) ? message.sources : []),
+    [message.sources]
+  );
+  const documents = useMemo(() => toDocuments(sources), [sources]);
   const hasChips = Boolean(message.chips && message.chips.length > 0);
   const [selectedSource, setSelectedSource] = useState(null);
 
-  const displayText = useMemo(
-    () => (isBot && sources.length > 0 ? stripCitations(message.text, sources) : message.text),
-    [isBot, message.text, sources]
-  );
+  // Citation matching needs each chunk's section, so it uses the full source list. The knowledge
+  // base separates names from details with " -- ", which answers echo; show it as a dash.
+  const displayText = useMemo(() => {
+    if (!isBot) {
+      return message.text;
+    }
+    const text = sources.length > 0 ? stripCitations(message.text, sources) : message.text;
+    return text.replace(/ -- /gu, " – ");
+  }, [isBot, message.text, sources]);
 
   return (
     <div className={`${styles.messageRow} ${isBot ? "" : styles.user}`}>
@@ -84,46 +109,40 @@ const MessageBubble = ({ message, onChipSelect }) => {
 
       <div className={styles.bubbleColumn}>
         <div className={`${styles.bubble} ${isBot ? styles.bot : styles.user}`}>
-          {isBot ? <ReactMarkdown>{displayText}</ReactMarkdown> : message.text}
+          {isBot ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{displayText}</ReactMarkdown>
+          ) : message.text}
         </div>
 
-        {isBot && sources.length > 0 && (
+        {isBot && documents.length > 0 && (
           <div className={styles.sources} aria-label="Sources">
             <span className={styles.sourcesLabel}>Sources</span>
-            {sources.map((source) => {
-              const label = source.source_section
-                ? `${source.source_name} · ${source.source_section}`
-                : source.source_name;
-              const sourceLink = isSafeUrl(source.source_url);
-
-              return sourceLink ? (
-                <a
-                  key={`${source.source_name}-${source.source_section}`}
-                  className={styles.sourceLink}
-                  href={source.source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {label}
-                </a>
-              ) : (
-                <button
-                  key={`${source.source_name}-${source.source_section}`}
-                  type="button"
-                  className={styles.sourceLink}
-                  onClick={() => setSelectedSource(source)}
-                >
-                  {label}
-                </button>
-              );
-            })}
+            {documents.map((document) => (isSafeUrl(document.url) ? (
+              <a
+                key={document.name}
+                className={styles.sourceLink}
+                href={document.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {document.name}
+              </a>
+            ) : (
+              <button
+                key={document.name}
+                type="button"
+                className={styles.sourceLink}
+                onClick={() => setSelectedSource(document)}
+              >
+                {document.name}
+              </button>
+            )))}
           </div>
         )}
 
         {selectedSource && (
           <div className={styles.sourceDetails} role="status">
-            <strong>{selectedSource.source_name}</strong>
-            {selectedSource.source_section && <span>{selectedSource.source_section}</span>}
+            <strong>{selectedSource.name}</strong>
             <span>This source is available in Querio’s knowledge base but has no public link yet.</span>
             <button type="button" onClick={() => setSelectedSource(null)}>Close</button>
           </div>

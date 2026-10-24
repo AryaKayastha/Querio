@@ -36,11 +36,66 @@ class Domain:
     description: str
     data_dir: Path
     guidance_only: bool
+    # Extra instruction for the answer step in this domain (e.g. always include official links).
+    answer_instructions: str = ""
+    # Appended verbatim to every answer generated from this domain's documents, so a known gap in
+    # the data is always disclosed (the model can't drop or reword it).
+    answer_disclaimer: str = ""
 
 
 # Only domains with usable source data are active. Add a domain here (and drop its
 # documents in ../data/<dir>/) to bring it online -- no router/retrieval code changes needed.
 DOMAINS: dict[str, Domain] = {
+    "D1": Domain(
+        code="D1",
+        name="Clubs, NSS & NCC",
+        description=(
+            "Student clubs at CSPIT (what each club does, its website, faculty and student coordinators, "
+            "past events), CHARUSAT NSS (units, Program Officers, student coordinators, NSS activities), "
+            "and NCC at CHARUSAT (structure, camps and training, certificates and benefits, cadet "
+            "achievements)."
+        ),
+        data_dir=DATA_ROOT / "D1_clubs",
+        guidance_only=True,
+        answer_instructions=(
+            "When you mention a club that has a website in the context, include that website link exactly "
+            "as written so the student can visit it directly. Never invent or alter a URL."
+        ),
+    ),
+    "D2": Domain(
+        code="D2",
+        name="Certifications",
+        description=(
+            "Professional and industry certifications for computer science students (cloud, cybersecurity, "
+            "networking, programming, data science/AI/ML, DevOps, databases, web/UX design, IT support, "
+            "project management): which to take, eligibility, exam cost and format, official links, study "
+            "materials and mock exams, student discounts, cost comparison, and certification roadmaps by "
+            "career goal."
+        ),
+        data_dir=DATA_ROOT / "D2_certifications",
+        guidance_only=True,
+        answer_instructions=(
+            "For every certification you mention, include its official link exactly as it appears in the "
+            "context (as a markdown link) so the student can go straight to the official website -- this is "
+            "a link for the student to follow, not a citation. Never invent, guess or alter a URL; if the "
+            "context gives no link for a certification, don't make one up."
+        ),
+    ),
+    "D3": Domain(
+        code="D3",
+        name="Extra-curricular Activities & Sports",
+        description=(
+            "Spoural sports and cultural events for CSPIT Computer Engineering: boys' and girls' sports "
+            "events (cricket, football, volleyball, chess, e-sports, ...), cultural events (dance, garba, "
+            "debate, quiz, fashion show, ...), and their faculty coordinators."
+        ),
+        data_dir=DATA_ROOT / "D3_eca_sports",
+        guidance_only=True,
+        answer_disclaimer=(
+            "*Note: this information covers only Computer Engineering (CE) students of CSPIT, not other "
+            "branches or the whole institute.*"
+        ),
+    ),
     "D5": Domain(
         code="D5",
         name="Formal Education",
@@ -79,11 +134,6 @@ DOMAINS: dict[str, Domain] = {
     ),
 }
 
-# Real topics that exist at the college but aren't wired up as active domains yet (D1-D3).
-# The classifier is told about these explicitly so it routes them to UNROUTED instead of
-# force-fitting them into an active domain just because it's the closest available option.
-INACTIVE_DOMAIN_TOPICS = "co-curricular activities/clubs, certifications, and extra-curricular activities/sports"
-
 # Below this, the router treats the query as ambiguous and asks the student to
 # clarify instead of committing to a domain -- see 02_architecture.md §2.2.
 CONFIDENCE_THRESHOLD = 0.6
@@ -93,8 +143,10 @@ CONFIDENCE_THRESHOLD = 0.6
 HISTORY_TURN_LIMIT = 3
 
 GUIDANCE_ONLY_SYSTEM_NOTE = (
-    "This domain is guidance-only. Explain the process, policy, eligibility, required "
-    "documents, and timelines, and point the student to the right contact/procedure. "
+    "This domain is guidance-only. Explain what the context says about the relevant process, "
+    "policy, eligibility, documents or timelines, and point the student to the right contact or "
+    "procedure where the context names one; don't add sections or advice for anything the context "
+    "doesn't cover. "
     "Never claim to submit, approve, reject, route, or track a request, and never imply "
     "an action was taken on the student's behalf."
 )

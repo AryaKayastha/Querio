@@ -1,6 +1,6 @@
 # Chatbot (Arya)
 
-Domain router + retrieval engine + LLM integration for Querio. Currently scoped to **D4 (Career, NOC & Placement)**, **D5 (Formal Education)**, and **D6 (Leave Management & Attendance)** — the domains with usable source data. Adding D1–D3 later means: drop their documents in `../data/<domain>/`, add the domain to `DOMAINS` in `src/querio_chatbot/config.py`, and ingest it — no router/retrieval code changes required.
+Domain router + retrieval engine + LLM integration for Querio. All six domains are active: **D1 (Clubs, NSS & NCC)**, **D2 (Certifications)**, **D3 (Extra-curricular Activities & Sports)**, **D4 (Career, NOC & Placement)**, **D5 (Formal Education)**, and **D6 (Leave Management & Attendance)**. Domains are defined in `DOMAINS` in `src/querio_chatbot/config.py`; a domain can add answer instructions (D1 and D2 always include website/official links) or a fixed disclaimer appended to every answer (D3's data covers CSPIT Computer Engineering only).
 
 Stack: **Gemini** (LLM + embeddings) · **Groq** (fallback LLM) · **LangGraph** (classify → retrieve → answer graph) · **Chroma** (per-domain vector store namespaces) · **FastAPI** (service boundary for `backend/` to call).
 
@@ -35,6 +35,15 @@ Collections live in `vectorstore/` (gitignored — each teammate builds their ow
 
 A full build from scratch is ~950 embeddings (D5 892, D4 47, D6 12), close to the free-tier daily embedding limit — if it stops partway, re-run it the next day and it continues where it left off.
 
+**Spreadsheets (`.xlsx`):** ingestion doesn't read spreadsheets directly. Convert them first, then ingest:
+
+```powershell
+python -m querio_chatbot.ingestion.spreadsheets   # writes <name>.xlsx.md next to each spreadsheet
+python -m querio_chatbot.ingestion.ingest D1 D2 D3
+```
+
+Each spreadsheet needs a spec in `src/querio_chatbot/ingestion/spreadsheets.py` naming the sheets to convert and how to render a row; a new spreadsheet without one is reported, not converted. That's deliberate: the data team's workbooks mix student-facing facts with personal mobile numbers, student emails and internal notes, and a test fails if any phone number or student email reaches the converted files. Commit the generated `.xlsx.md` files alongside the spreadsheets.
+
 **Semester course lists:** each semester's subject list lives in only one or two table pages of the booklets, which rarely name the semester and are outnumbered by detailed per-subject syllabus pages. `../data/D5_formal_education/Semester_N_Courses.md` hold curated transcriptions of those tables so "subjects for semester N" retrieves the right list. Update them when a new booklet is released.
 
 ## Run the service
@@ -60,7 +69,7 @@ curl -Method Post http://localhost:8001/chat -Headers @{"Content-Type"="applicat
 ```json
 {
   "answer": "string",
-  "domain": "D4 | D5 | D6 | UNROUTED",
+  "domain": "D1 | D2 | D3 | D4 | D5 | D6 | UNROUTED",
   "confidence": 0.92,
   "sources": [
     {

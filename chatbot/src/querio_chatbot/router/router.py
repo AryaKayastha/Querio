@@ -1,3 +1,5 @@
+import re
+from difflib import SequenceMatcher
 from typing import Literal, Optional, TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -8,10 +10,19 @@ from querio_chatbot.config import (
     DOMAINS,
     GUIDANCE_ONLY_SYSTEM_NOTE,
     HISTORY_TURN_LIMIT,
-    INACTIVE_DOMAIN_TOPICS,
 )
 from querio_chatbot.llm.chat import invoke_with_fallback
 from querio_chatbot.retrieval.retriever import retrieve
+
+# Placed right before the question in the prompt, where models follow formatting rules most
+# reliably; the chat UI renders markdown (bullets, ### headings, links).
+ANSWER_FORMAT_RULES = """Formatting rules for your answer (markdown, read in a chat window):
+- Start with one sentence that directly answers the question. Don't open with "Based on the provided context".
+- List three or more items as bullets. Start each bullet with the item's name or label in **bold**, then its detail. Never bold a whole sentence.
+- If the answer has more than 8 bullets or several distinct groups, put each group under a short ### heading.
+- Use at most one level of sub-bullets.
+- If the question asks for a specific number of items (e.g. "top 5"), list exactly that many.
+- Stop when the information ends: no closing summary or extra advice."""
 
 NO_ANSWER_MESSAGE = (
     "I don't have information to answer that yet. Please check with the relevant "
@@ -111,10 +122,8 @@ def classify_node(state: ChatState) -> ChatState:
     prompt = (
         "You are a routing classifier for a college assistant. The assistant currently only "
         f"handles these domains:\n{domain_descriptions}\n\n"
-        f"Other real topics also exist at the college -- {INACTIVE_DOMAIN_TOPICS} -- but are "
-        "NOT handled yet. If the question is about one of those, or anything else outside the "
-        "domains listed above, respond UNROUTED. Do not force a question into a domain just "
-        "because it's the closest available option.\n"
+        "If the question is about anything outside the domains listed above, respond UNROUTED. "
+        "Do not force a question into a domain just because it's the closest available option.\n"
         f"{history_section}\n"
         f"Question: {state['query']}"
     )
@@ -159,11 +168,12 @@ def generate_node(state: ChatState) -> ChatState:
         "Do not cite sources, page numbers, or section names within your answer, and do not add a "
         "closing sentence summarizing what you cited -- the student sees the source documents "
         "separately, so inline citations only clutter the answer.",
-        "Use markdown formatting (bold, bullet lists) to keep the answer well-structured and easy "
-        "to scan.",
     ]
     if state.get("guidance_only"):
         system_instructions.append(GUIDANCE_ONLY_SYSTEM_NOTE)
+    domain = DOMAINS.get(state.get("domain"))
+    if domain and domain.answer_instructions:
+        system_instructions.append(domain.answer_instructions)
 
     history_block = _format_history(state.get("history"))
     if history_block:
@@ -177,10 +187,32 @@ def generate_node(state: ChatState) -> ChatState:
     prompt = (
         "\n".join(system_instructions)
         + history_section
-        + f"\n\nContext:\n{context}\n\nQuestion: {state['query']}\n\nAnswer:"
+        + f"\n\nContext:\n{context}\n\n{ANSWER_FORMAT_RULES}\n\nQuestion: {state['query']}\n\nAnswer:"
     )
     response = invoke_with_fallback(lambda model: model, prompt)
-    return {"answer": _extract_text(response.content)}
+    answer = _extract_text(response.content)
+    if domain and domain.answer_disclaimer:
+        answer = _append_disclaimer(answer, domain.answer_disclaimer)
+    return {"answer": answer}
+
+
+def _plain(text: str) -> str:
+    return " ".join(re.sub(r"[*_`>]", " ", text).lower().split())
+
+
+def _append_disclaimer(answer: str, disclaimer: str) -> str:
+    """Append the domain disclaimer exactly once.
+
+    Earlier answers in the conversation end with the disclaimer, and the model imitates them, so its
+    own (sometimes reworded) copy is dropped before the official one is appended.
+    """
+    target = _plain(disclaimer)
+    kept = [
+        line for line in answer.splitlines()
+        if not line.strip() or SequenceMatcher(None, _plain(line), target).ratio() < 0.8
+    ]
+    body = "\n".join(kept).rstrip()
+    return f"{body}\n\n{disclaimer}"
 
 
 def build_graph():
