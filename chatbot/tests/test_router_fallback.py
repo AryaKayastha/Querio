@@ -1,3 +1,9 @@
+from types import SimpleNamespace
+
+from langchain_core.documents import Document
+
+from querio_chatbot.config import DOMAINS
+from querio_chatbot.router import router
 from querio_chatbot.router.router import (
     _build_clarifying_message,
     _extract_text,
@@ -5,6 +11,51 @@ from querio_chatbot.router.router import (
     generate_node,
     retrieve_node,
 )
+
+DOC = [Document(page_content="Cricket -- faculty coordinator: Mrugendra sir", metadata={"source_name": "Spoural"})]
+
+
+def _capture_prompt(monkeypatch, answer="Model answer."):
+    prompts = []
+
+    def fake_invoke(build, prompt):
+        prompts.append(prompt)
+        return SimpleNamespace(content=answer)
+
+    monkeypatch.setattr(router, "invoke_with_fallback", fake_invoke)
+    return prompts
+
+
+def test_generate_node_appends_the_domain_disclaimer_verbatim(monkeypatch):
+    _capture_prompt(monkeypatch)
+    answer = generate_node({"query": "cricket coordinator?", "domain": "D3", "documents": DOC})["answer"]
+    assert answer == f"Model answer.\n\n{DOMAINS['D3'].answer_disclaimer}"
+
+
+def test_generate_node_keeps_one_disclaimer_when_the_model_writes_its_own(monkeypatch):
+    # Earlier answers end with the note, so the model copies it (here reworded and re-cased).
+    model_answer = (
+        "I do not have information on when Spoural is happening.\n\n"
+        "*Note: This information covers only Computer Engineering (CE) students of CSPIT, not other "
+        "branches or the whole institute.*"
+    )
+    _capture_prompt(monkeypatch, answer=model_answer)
+    answer = generate_node({"query": "when is spoural?", "domain": "D3", "documents": DOC})["answer"]
+    assert answer.lower().count("computer engineering (ce) students") == 1
+    assert answer.startswith("I do not have information on when Spoural is happening.")
+    assert answer.endswith(DOMAINS["D3"].answer_disclaimer)
+
+
+def test_generate_node_adds_domain_answer_instructions_to_the_prompt(monkeypatch):
+    prompts = _capture_prompt(monkeypatch)
+    answer = generate_node({"query": "AWS cert?", "domain": "D2", "documents": DOC})["answer"]
+    assert DOMAINS["D2"].answer_instructions in prompts[0]
+    assert answer == "Model answer."
+
+
+def test_generate_node_has_no_disclaimer_when_nothing_was_retrieved():
+    answer = generate_node({"query": "cricket coordinator?", "domain": "D3", "documents": []})["answer"]
+    assert DOMAINS["D3"].answer_disclaimer not in answer
 
 
 def test_retrieve_node_skips_retrieval_when_low_confidence():
