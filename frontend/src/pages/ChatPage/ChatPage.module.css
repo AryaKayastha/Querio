@@ -2,6 +2,7 @@
   display: flex;
   height: 100vh;
   width: 100%;
+  background: var(--color-bg);
 }
 
 .mainColumn {
@@ -10,9 +11,24 @@
   flex-direction: column;
   height: 100%;
   min-width: 0;
+  background: var(--color-bg);
 }
 
 .inputWrapper {
-  padding: 14px 24px 20px;
+  padding: 16px 28px 24px;
   flex-shrink: 0;
+  background: var(--color-bg);
+  position: relative;
+}
+
+/* Subtle gradient fade above input */
+.inputWrapper::before {
+  content: "";
+  position: absolute;
+  top: -24px;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(180deg, transparent 0%, var(--color-bg) 100%);
+  pointer-events: none;
 }

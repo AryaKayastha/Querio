@@ -4,30 +4,117 @@
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
+  position: relative;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+/* Animated gradient orbs behind the card */
+.page::before {
+  content: "";
+  position: absolute;
+  top: -30%;
+  left: -10%;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(108, 92, 231, 0.25) 0%, transparent 70%);
+  filter: blur(80px);
+  animation: floatOrb1 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.page::after {
+  content: "";
+  position: absolute;
+  bottom: -20%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, transparent 70%);
+  filter: blur(80px);
+  animation: floatOrb2 10s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes floatOrb1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, -30px) scale(1.05); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+@keyframes floatOrb2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-30px, 20px) scale(1.05); }
+  66% { transform: translate(20px, -40px) scale(0.95); }
 }
 
 .card {
   width: 100%;
-  max-width: 460px;
+  max-width: 520px;
   text-align: center;
+  position: relative;
+  z-index: 1;
+  animation: fadeInUp 0.6s var(--ease-out) both;
 }
 
 .greetingIcon {
-  margin: 0 auto 16px;
+  margin: 0 auto 20px;
+  animation: float 3s ease-in-out infinite;
 }
 
 .title {
   font-weight: 700;
-  font-size: 20px;
-  margin-bottom: 6px;
+  font-size: 28px;
+  margin-bottom: 8px;
+  background: var(--gradient-brand);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease infinite;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
-  font-size: 12.5px;
+  font-size: 15px;
   color: var(--color-ink-soft);
-  margin-bottom: 26px;
+  margin-bottom: 12px;
+  line-height: 1.5;
 }
 
 .inputSection {
-  margin-top: 26px;
+  margin-top: 32px;
+  animation: fadeInUp 0.6s var(--ease-out) 0.15s both;
+}
+
+.exampleSection {
+  margin-top: 28px;
+  animation: fadeInUp 0.6s var(--ease-out) 0.3s both;
+}
+
+.exampleLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 12px;
+}
+
+.exampleGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .exampleGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .title {
+    font-size: 24px;
+  }
 }
