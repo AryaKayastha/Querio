@@ -14,6 +14,16 @@ from querio_chatbot.config import (
 from querio_chatbot.llm.chat import invoke_with_fallback
 from querio_chatbot.retrieval.retriever import retrieve
 
+# Placed right before the question in the prompt, where models follow formatting rules most
+# reliably; the chat UI renders markdown (bullets, ### headings, links).
+ANSWER_FORMAT_RULES = """Formatting rules for your answer (markdown, read in a chat window):
+- Start with one sentence that directly answers the question. Don't open with "Based on the provided context".
+- List three or more items as bullets. Start each bullet with the item's name or label in **bold**, then its detail. Never bold a whole sentence.
+- If the answer has more than 8 bullets or several distinct groups, put each group under a short ### heading.
+- Use at most one level of sub-bullets.
+- If the question asks for a specific number of items (e.g. "top 5"), list exactly that many.
+- Stop when the information ends: no closing summary or extra advice."""
+
 NO_ANSWER_MESSAGE = (
     "I don't have information to answer that yet. Please check with the relevant "
     "department office, or try rephrasing your question."
@@ -158,8 +168,6 @@ def generate_node(state: ChatState) -> ChatState:
         "Do not cite sources, page numbers, or section names within your answer, and do not add a "
         "closing sentence summarizing what you cited -- the student sees the source documents "
         "separately, so inline citations only clutter the answer.",
-        "Use markdown formatting (bold, bullet lists) to keep the answer well-structured and easy "
-        "to scan.",
     ]
     if state.get("guidance_only"):
         system_instructions.append(GUIDANCE_ONLY_SYSTEM_NOTE)
@@ -179,7 +187,7 @@ def generate_node(state: ChatState) -> ChatState:
     prompt = (
         "\n".join(system_instructions)
         + history_section
-        + f"\n\nContext:\n{context}\n\nQuestion: {state['query']}\n\nAnswer:"
+        + f"\n\nContext:\n{context}\n\n{ANSWER_FORMAT_RULES}\n\nQuestion: {state['query']}\n\nAnswer:"
     )
     response = invoke_with_fallback(lambda model: model, prompt)
     answer = _extract_text(response.content)

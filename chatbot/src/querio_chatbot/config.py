@@ -143,8 +143,10 @@ CONFIDENCE_THRESHOLD = 0.6
 HISTORY_TURN_LIMIT = 3
 
 GUIDANCE_ONLY_SYSTEM_NOTE = (
-    "This domain is guidance-only. Explain the process, policy, eligibility, required "
-    "documents, and timelines, and point the student to the right contact/procedure. "
+    "This domain is guidance-only. Explain what the context says about the relevant process, "
+    "policy, eligibility, documents or timelines, and point the student to the right contact or "
+    "procedure where the context names one; don't add sections or advice for anything the context "
+    "doesn't cover. "
     "Never claim to submit, approve, reject, route, or track a request, and never imply "
     "an action was taken on the student's behalf."
 )
