@@ -8,6 +8,17 @@ const CONNECTIVITY_REPLY =
 
 const EMPTY_QUERY_REPLY = "Please type a question before sending.";
 
+const BUSY_REPLY = "Querio is busy right now. Please try again in a minute.";
+
+const busyMessageFrom = (details) => {
+  try {
+    const detail = JSON.parse(details).detail;
+    return typeof detail === "string" && detail.trim().length > 0 ? detail : BUSY_REPLY;
+  } catch {
+    return BUSY_REPLY;
+  }
+};
+
 const normalizeSources = (sources) => {
   if (!Array.isArray(sources)) {
     return [];
@@ -70,6 +81,15 @@ export const getBotReply = async (messageText, sessionId) => {
     if (error && (error.type === "timeout" || error.type === "network_error")) {
       return {
         reply: CONNECTIVITY_REPLY,
+        sources: [],
+        chips: [],
+      };
+    }
+
+    if (error && error.type === "http_error" && error.status === 503) {
+      // The models are busy or out of quota (QRO-02); the backend sends a "try again" message.
+      return {
+        reply: busyMessageFrom(error.details),
         sources: [],
         chips: [],
       };

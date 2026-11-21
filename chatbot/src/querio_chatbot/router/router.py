@@ -12,7 +12,7 @@ from querio_chatbot.config import (
     HISTORY_TURN_LIMIT,
 )
 from querio_chatbot.guardrails import drop_claim_sentences, find_confirmation_claim
-from querio_chatbot.llm.chat import invoke_with_fallback
+from querio_chatbot.llm.chat import ProvidersUnavailable, invoke_with_fallback
 from querio_chatbot.retrieval.retriever import _significant_tokens, retrieve
 
 # Placed right before the question in the prompt, where models follow formatting rules most
@@ -468,7 +468,7 @@ def generate_node(state: ChatState) -> ChatState:
     response = invoke_with_fallback(lambda model: model, "\n".join(system_instructions) + question_section)
     answer = _student_facing(_extract_text(response.content))
     if find_confirmation_claim(answer):
-        answer = _answer_without_claims(system_instructions, question_section, domain)
+        answer = _answer_without_claims(system_instructions, question_section, domain, answer)
     sources = _select_sources(answer, documents)
     if action:
         # Fixed text, so the decline can't be dropped or reworded by the model.
@@ -478,12 +478,17 @@ def generate_node(state: ChatState) -> ChatState:
     return {"answer": answer, "sources": sources}
 
 
-def _answer_without_claims(system_instructions: list[str], question_section: str, domain) -> str:
+def _answer_without_claims(system_instructions: list[str], question_section: str, domain, first_answer: str) -> str:
     """For an answer that claimed a request was acted on: regenerate once, then cut any claim still
     there, and if nothing useful is left, say who can help instead (QRO-01)."""
     prompt = "\n".join([*system_instructions, CLAIM_RETRY_INSTRUCTION]) + question_section
-    retry = invoke_with_fallback(lambda model: model, prompt)
-    answer = drop_claim_sentences(_student_facing(_extract_text(retry.content)))
+    try:
+        retry = invoke_with_fallback(lambda model: model, prompt)
+        answer = drop_claim_sentences(_student_facing(_extract_text(retry.content)))
+    except ProvidersUnavailable:
+        # No model for the second attempt (QRO-02): cut the claim from the first answer rather than
+        # failing a question that already has a usable answer.
+        answer = drop_claim_sentences(first_answer)
     if len(answer) >= _MIN_ANSWER_CHARS:
         return answer
     contact = domain.contact if domain and domain.contact else DEFAULT_CONTACT

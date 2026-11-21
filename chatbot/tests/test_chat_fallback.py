@@ -1,16 +1,23 @@
+import time
+
 import pytest
 
 from querio_chatbot.llm import chat
 
 
 class FakeModel:
-    def __init__(self, result=None, error=None):
+    def __init__(self, result=None, error=None, errors=(), delay=0.0):
         self.result = result
         self.error = error
+        self.errors = list(errors)  # raised on the first calls, one per call, before falling back to error/result
+        self.delay = delay
         self.calls = 0
 
     def invoke(self, prompt):
         self.calls += 1
+        time.sleep(self.delay)
+        if self.errors:
+            raise self.errors.pop(0)
         if self.error:
             raise self.error
         return self.result
@@ -53,11 +60,13 @@ def test_empty_structured_result_counts_as_failure(providers):
     assert chat.invoke_with_fallback(lambda model: model, "q") == "groq answer"
 
 
-def test_raises_last_error_when_every_provider_fails(providers):
+def test_raises_providers_unavailable_with_the_last_error_when_every_provider_fails(providers):
     providers(("gemini", FakeModel(error=TimeoutError("gemini down"))), ("groq", FakeModel(error=RuntimeError("groq down"))))
 
-    with pytest.raises(RuntimeError, match="groq down"):
+    # QRO-02: one error type the API turns into a 503, keeping the provider's error for the logs.
+    with pytest.raises(chat.ProvidersUnavailable, match="groq down") as raised:
         chat.invoke_with_fallback(lambda model: model, "q")
+    assert isinstance(raised.value.__cause__, RuntimeError)
 
 
 # QRO-13: a failing provider is benched for a while instead of being retried on every call.
@@ -98,9 +107,73 @@ def test_last_provider_is_always_tried_even_after_failing(providers):
     providers(("gemini", FakeModel(error=TimeoutError("gemini down"))), ("groq", groq))
 
     for _ in range(2):
-        with pytest.raises(RuntimeError, match="groq down"):
+        with pytest.raises(chat.ProvidersUnavailable, match="groq down"):
             chat.invoke_with_fallback(lambda model: model, "q")
     assert groq.calls == 2
+
+
+# QRO-02: a benched provider goes to the back of the queue but is never skipped outright. Skipping it
+# turned one Gemini timeout into a minute of failed questions while Groq's daily quota was used up.
+
+
+def test_benched_provider_is_still_tried_when_the_provider_ahead_of_it_fails(providers):
+    gemini = FakeModel(errors=[TimeoutError("504 DEADLINE_EXCEEDED")], result="gemini answer")
+    groq = FakeModel(result="groq answer")
+    providers(("gemini", gemini), ("groq", groq))
+    assert chat.invoke_with_fallback(lambda model: model, "q") == "groq answer"  # gemini benched
+
+    groq.error = RuntimeError("429 tokens per day exhausted")
+    assert chat.invoke_with_fallback(lambda model: model, "q") == "gemini answer"
+    assert (gemini.calls, groq.calls) == (2, 2)
+
+
+def test_a_failing_last_provider_is_benched_too_so_the_next_call_tries_the_other_first(providers):
+    gemini = FakeModel(errors=[TimeoutError("504 DEADLINE_EXCEEDED")], result="gemini answer")
+    groq = FakeModel(error=RuntimeError("429 tokens per day exhausted"))
+    providers(("gemini", gemini), ("groq", groq))
+    with pytest.raises(chat.ProvidersUnavailable):
+        chat.invoke_with_fallback(lambda model: model, "q")
+
+    # Both benched: configured order again, and gemini has recovered.
+    assert chat.invoke_with_fallback(lambda model: model, "q") == "gemini answer"
+    assert groq.calls == 1
+
+
+def test_a_lone_provider_is_not_benched(providers):
+    gemini = FakeModel(errors=[TimeoutError("504 DEADLINE_EXCEEDED")], result="gemini answer")
+    providers(("gemini", gemini))
+    with pytest.raises(chat.ProvidersUnavailable):
+        chat.invoke_with_fallback(lambda model: model, "q")
+    assert chat.invoke_with_fallback(lambda model: model, "q") == "gemini answer"
+
+
+# QRO-02: a question has a deadline; no provider call is started once it has (nearly) passed.
+
+
+def test_no_provider_is_called_after_the_deadline(providers):
+    gemini, groq = FakeModel(result="gemini answer"), FakeModel(result="groq answer")
+    providers(("gemini", gemini), ("groq", groq))
+
+    with chat.chat_deadline(time.monotonic() - 1), pytest.raises(chat.ProvidersUnavailable, match="out of time"):
+        chat.invoke_with_fallback(lambda model: model, "q")
+    assert (gemini.calls, groq.calls) == (0, 0)
+
+
+def test_fallback_is_not_started_when_the_first_provider_used_up_the_time(providers, monkeypatch):
+    monkeypatch.setattr(chat, "MIN_SECONDS_FOR_ATTEMPT", 0.3)
+    gemini = FakeModel(error=TimeoutError("504 DEADLINE_EXCEEDED"), delay=0.4)
+    groq = FakeModel(result="groq answer")
+    providers(("gemini", gemini), ("groq", groq))
+
+    with chat.chat_deadline(time.monotonic() + 0.6), pytest.raises(chat.ProvidersUnavailable, match="out of time"):
+        chat.invoke_with_fallback(lambda model: model, "q")
+    assert groq.calls == 0
+
+
+def test_calls_outside_a_deadline_are_unaffected(providers):
+    providers(("gemini", FakeModel(result="gemini answer")),)
+    assert chat._seconds_left() is None
+    assert chat.invoke_with_fallback(lambda model: model, "q") == "gemini answer"
 
 
 @pytest.fixture

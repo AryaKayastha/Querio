@@ -164,6 +164,51 @@ def test_chat_returns_bad_gateway_when_chatbot_fails(monkeypatch, error, fake_db
     assert fake_db.added == []
 
 
+# QRO-02: the chatbot answers 503 when its models are busy or out of quota; that is passed on, with its
+# message and Retry-After, rather than turned into a generic 502.
+
+
+def _chatbot_error(status, url, **kwargs):
+    return lambda *args, **_: httpx.Response(status, request=httpx.Request("POST", url), **kwargs)
+
+
+def test_chatbot_busy_is_passed_on_as_503_with_its_message(monkeypatch, fresh_session_store, fake_db):
+    url = "http://localhost:8001/chat"
+    busy = _chatbot_error(503, url, json={"detail": "Querio is getting more questions than it can answer right now."},
+                          headers={"Retry-After": "30"})
+    monkeypatch.setattr(app_module.httpx, "post", busy)
+
+    with pytest.raises(app_module.HTTPException) as raised:
+        app_module.chat(app_module.ChatRequest(query="hello", session_id="s1"), db=fake_db)
+
+    assert raised.value.status_code == 503
+    assert raised.value.detail == "Querio is getting more questions than it can answer right now."
+    assert raised.value.headers == {"Retry-After": "30"}
+    # A question that wasn't answered isn't logged or added to the conversation.
+    assert fake_db.added == []
+    assert fresh_session_store.get_recent("s1") == []
+
+
+def test_chatbot_busy_without_a_usable_body_still_gets_a_message(monkeypatch, fake_db):
+    monkeypatch.setattr(app_module.httpx, "post", _chatbot_error(503, "http://localhost:8001/chat", text="Service Unavailable"))
+
+    with pytest.raises(app_module.HTTPException) as raised:
+        app_module.chat(app_module.ChatRequest(query="hello", session_id="s1"), db=fake_db)
+
+    assert raised.value.status_code == 503
+    assert raised.value.detail == app_module.BUSY_FALLBACK_MESSAGE
+    assert raised.value.headers == {"Retry-After": "30"}
+
+
+def test_other_chatbot_errors_are_still_bad_gateway(monkeypatch, fake_db):
+    monkeypatch.setattr(app_module.httpx, "post", _chatbot_error(500, "http://localhost:8001/chat", json={"detail": "bug"}))
+
+    with pytest.raises(app_module.HTTPException) as raised:
+        app_module.chat(app_module.ChatRequest(query="hello", session_id="s1"), db=fake_db)
+
+    assert raised.value.status_code == 502
+
+
 @pytest.mark.parametrize("query", ["", "   ", "\n\t "])
 def test_blank_query_is_rejected_before_reaching_the_chatbot(monkeypatch, fake_db, query):
     def fail(*args, **kwargs):

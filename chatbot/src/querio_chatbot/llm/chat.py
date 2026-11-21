@@ -4,12 +4,17 @@ Each call tries the providers in config.CHAT_PROVIDERS order and moves on when o
 (timeout, overload, exhausted free-tier quota), so a single provider's outage doesn't take
 the chatbot down. Embeddings and OCR deliberately stay on Gemini: the vector store holds
 Gemini embeddings, and OCR needs a vision model.
+
+When every provider fails, or the question runs out of time, ProvidersUnavailable is raised so
+the API can answer 503 "try again shortly" instead of a bare 500 (QRO-02).
 """
 
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import Any
 
@@ -31,11 +36,36 @@ GEMINI_MIN_TIMEOUT_SECONDS = 10
 FALLBACK_TIMEOUT_SECONDS = GEMINI_MIN_TIMEOUT_SECONDS
 LAST_PROVIDER_MAX_RETRIES = 2
 
-# After a provider with a fallback fails (timeout, exhausted quota, outage), skip it for this long,
-# so the following calls don't each pay for the same failure before reaching the fallback (QRO-13).
+# After a provider fails (timeout, exhausted quota, outage), it goes to the back of the queue for this
+# long, so the following calls don't each pay for the same failure before reaching another provider
+# (QRO-13). It is still tried when the providers ahead of it fail: skipping it outright turned a
+# single Gemini timeout into a minute of failed questions whenever Groq's quota was used up (QRO-02).
 PROVIDER_COOLDOWN_SECONDS = 60
 _cooldown_until: dict[str, float] = {}
 _cooldown_lock = threading.Lock()
+
+# Don't start a provider call with less time than this left before the question's deadline.
+MIN_SECONDS_FOR_ATTEMPT = 2
+_deadline: ContextVar[float | None] = ContextVar("querio_chat_deadline", default=None)
+
+
+class ProvidersUnavailable(RuntimeError):
+    """No model provider could answer (all failed, or the question ran out of time)."""
+
+
+@contextmanager
+def chat_deadline(deadline: float) -> Iterator[None]:
+    """Stop starting provider calls after `deadline` (a time.monotonic() value) inside this block."""
+    token = _deadline.set(deadline)
+    try:
+        yield
+    finally:
+        _deadline.reset(token)
+
+
+def _seconds_left() -> float | None:
+    deadline = _deadline.get()
+    return None if deadline is None else deadline - time.monotonic()
 
 
 def _gemini(max_retries: int, timeout: float) -> BaseChatModel:
@@ -86,9 +116,12 @@ def chat_providers() -> tuple[tuple[str, BaseChatModel], ...]:
     )
 
 
-def _cooling_down(name: str) -> bool:
+def _attempt_order(providers: tuple[tuple[str, BaseChatModel], ...]) -> list[tuple[str, BaseChatModel]]:
+    """Providers in configured order, with any that are cooling down moved to the back."""
     with _cooldown_lock:
-        return _cooldown_until.get(name, 0.0) > time.monotonic()
+        now = time.monotonic()
+        cooling = {name for name, until in _cooldown_until.items() if until > now}
+    return [p for p in providers if p[0] not in cooling] + [p for p in providers if p[0] in cooling]
 
 
 def _start_cooldown(name: str) -> None:
@@ -106,15 +139,16 @@ def invoke_with_fallback(build: Callable[[BaseChatModel], Runnable], prompt: Any
 
     `build` adapts the raw chat model, e.g. `lambda model: model.with_structured_output(Schema)`.
     A structured call that comes back empty (the model skipped the tool call) counts as a failure.
-    A provider that has a fallback and just failed is skipped for PROVIDER_COOLDOWN_SECONDS; the last
-    provider is always tried.
+    A provider that just failed is tried after the others for PROVIDER_COOLDOWN_SECONDS. Raises
+    ProvidersUnavailable when every provider fails or the chat_deadline() leaves no time to try.
     """
     providers = chat_providers()
+    order = _attempt_order(providers)
     last_error: Exception | None = None
-    for index, (name, model) in enumerate(providers):
-        has_fallback = index < len(providers) - 1
-        if has_fallback and _cooling_down(name):
-            continue
+    for position, (name, model) in enumerate(order):
+        seconds_left = _seconds_left()
+        if seconds_left is not None and seconds_left < MIN_SECONDS_FOR_ATTEMPT:
+            raise ProvidersUnavailable(f"out of time before trying {name} (last error: {last_error!r})") from last_error
         try:
             result = build(model).invoke(prompt)
             if result is None:
@@ -122,14 +156,15 @@ def invoke_with_fallback(build: Callable[[BaseChatModel], Runnable], prompt: Any
         except Exception as exc:
             last_error = exc
             # ValueError (incl. output-parser and validation errors) is one odd response, not a
-            # provider problem, so it doesn't bench the provider.
-            if has_fallback and not isinstance(exc, ValueError):
+            # provider problem, so it doesn't bench the provider. A lone provider has nothing to
+            # make way for, so it isn't benched either.
+            if len(providers) > 1 and not isinstance(exc, ValueError):
                 _start_cooldown(name)
-            if has_fallback:
-                logger.warning("%s chat call failed (%s: %s); falling back to %s",
-                               name, type(exc).__name__, str(exc)[:200], providers[index + 1][0])
+            next_name = order[position + 1][0] if position + 1 < len(order) else None
+            logger.warning("%s chat call failed (%s: %s)%s", name, type(exc).__name__, str(exc)[:200],
+                           f"; falling back to {next_name}" if next_name else "")
             continue
-        if index > 0:
+        if name != providers[0][0]:
             logger.warning("answered by fallback provider %s", name)
         return result
-    raise last_error
+    raise ProvidersUnavailable(f"every chat provider failed (last error: {last_error!r})") from last_error
