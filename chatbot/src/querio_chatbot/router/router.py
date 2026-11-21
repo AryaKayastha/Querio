@@ -48,6 +48,10 @@ GREETING_REPLY = f"Hi! I'm Querio, your college assistant. {TOPICS_MESSAGE}\n\nW
 THANKS_REPLY = "You're welcome! If you have another question, just ask."
 GOODBYE_REPLY = "Goodbye, and good luck! Come back any time you have a question."
 
+TOO_SHORT_REPLY = f"Please type your question in a few words and I'll do my best to help. {TOPICS_MESSAGE}"
+# Fewer letters/digits than this ("?", "a", "") can't be a question, so no model call is spent on it.
+_MIN_QUERY_ALNUM_CHARS = 2
+
 # Messages that are nothing but small talk get a fixed reply with no model call. The whole message
 # must be made of these phrases (plus filler such as "ok" or "Querio"), so "hi, what are the fees?"
 # still goes to the router. Checked in this order: "thanks, bye" is answered as thanks.
@@ -310,6 +314,8 @@ def _fixed_reply(query: str, history: Optional[list[dict]], answer: str, confide
 
 
 def answer_query(query: str, history: Optional[list[dict]] = None) -> ChatState:
+    if len(re.findall(r"[^\W_]", query)) < _MIN_QUERY_ALNUM_CHARS:
+        return _fixed_reply(query, history, TOO_SHORT_REPLY, confidence=0.0)
     small_talk = _small_talk_reply(query)
     if small_talk is not None:
         return _fixed_reply(query, history, small_talk, confidence=1.0)
