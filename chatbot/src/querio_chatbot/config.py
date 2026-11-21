@@ -54,6 +54,10 @@ class Domain:
     # Shown to students when Querio lists what it can help with (greetings, off-topic questions).
     # Pick a question this domain's documents answer well.
     example_question: str = ""
+    # Who a student should check with about their own request in this domain, since Querio can't
+    # track or act on requests. Read as "please check with <contact>". Only name contacts the
+    # domain's documents name.
+    contact: str = ""
 
 
 # Only domains with usable source data are active. Add a domain here (and drop its
@@ -75,6 +79,7 @@ DOMAINS: dict[str, Domain] = {
             "as written so the student can visit it directly. Never invent or alter a URL."
         ),
         example_question="What are the benefits of joining NCC?",
+        contact="the club's faculty coordinator, or your NSS Program Officer or NCC unit",
     ),
     "D2": Domain(
         code="D2",
@@ -95,6 +100,7 @@ DOMAINS: dict[str, Domain] = {
             "context gives no link for a certification, don't make one up."
         ),
         example_question="Which AWS certification should I start with?",
+        contact="the certification provider, through your account on its official website",
     ),
     "D3": Domain(
         code="D3",
@@ -111,6 +117,7 @@ DOMAINS: dict[str, Domain] = {
             "branches or the whole institute.*"
         ),
         example_question="Which cultural events are there in Spoural?",
+        contact="the event's faculty coordinator",
     ),
     "D5": Domain(
         code="D5",
@@ -123,6 +130,7 @@ DOMAINS: dict[str, Domain] = {
         data_dir=DATA_ROOT / "D5_formal_education",
         guidance_only=False,
         example_question="What are the subjects in semester 5?",
+        contact="your department office",
     ),
     "D6": Domain(
         code="D6",
@@ -136,6 +144,8 @@ DOMAINS: dict[str, Domain] = {
         data_dir=DATA_ROOT / "D6_leave_attendance",
         guidance_only=True,
         example_question="What happens if my attendance falls below 75%?",
+        # Attendance policy: leave is approved by the HOD; event leave is logged in e-governance.
+        contact="your Head of Department (HOD), who approves leave; leave for events is also logged in the e-governance system",
     ),
     "D4": Domain(
         code="D4",
@@ -150,6 +160,7 @@ DOMAINS: dict[str, Domain] = {
         data_dir=DATA_ROOT / "D4_career_noc",
         guidance_only=True,
         example_question="What is the eligibility for on-campus placements?",
+        contact="the Career Development & Placement Cell (CDPC)",
     ),
 }
 

@@ -12,7 +12,7 @@ from querio_chatbot.config import (
     HISTORY_TURN_LIMIT,
 )
 from querio_chatbot.llm.chat import invoke_with_fallback
-from querio_chatbot.retrieval.retriever import retrieve
+from querio_chatbot.retrieval.retriever import _significant_tokens, retrieve
 
 # Placed right before the question in the prompt, where models follow formatting rules most
 # reliably; the chat UI renders markdown (bullets, ### headings, links).
@@ -51,6 +51,23 @@ GOODBYE_REPLY = "Goodbye, and good luck! Come back any time you have a question.
 TOO_SHORT_REPLY = f"Please type your question in a few words and I'll do my best to help. {TOPICS_MESSAGE}"
 # Fewer letters/digits than this ("?", "a", "") can't be a question, so no model call is spent on it.
 _MIN_QUERY_ALNUM_CHARS = 2
+
+# With no earlier messages these can't refer to anything, so Querio asks instead of guessing or
+# answering a premise it can't check (QRO-11). With history they go to the router as usual.
+_NEEDS_EARLIER_MESSAGES = re.compile(
+    r"""
+    \b(?:as|like)\ i\ (?:told\ you|said|mentioned)\b                  # "as I told you earlier, ..."
+    | \bi\ (?:already\ )?(?:told\ you|mentioned)\ (?:earlier|before)\b
+    | ^(?:and\ |so\ |ok\ |okay\ )?(?:tell\ me\ more|more\ details?|go\ on|elaborate)
+      (?:\ (?:about|on)\ (?:it|that|this|them))?\W*$                  # only "tell me more"
+    | ^(?:and\ |so\ )?what\ about\ (?:it|its|it's|that|this|them|those|their)\b  # "what about its fees?"
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+NO_EARLIER_MESSAGES_REPLY = (
+    "I don't have any earlier messages from you in this chat, so I'm not sure what that refers to. "
+    "Could you ask your full question, including details like your programme, branch and year if they matter?"
+)
 
 # Messages that are nothing but small talk get a fixed reply with no model call. The whole message
 # must be made of these phrases (plus filler such as "ok" or "Querio"), so "hi, what are the fees?"
@@ -91,6 +108,32 @@ class Classification(BaseModel):
             "than one, otherwise null"
         ),
     )
+    request_type: Literal["information", "status", "action"] = Field(
+        default="information",
+        description=(
+            "'status' if the student asks about the state of their OWN request, application, "
+            "registration or record (e.g. 'Has my leave been approved?', 'What is the status of my "
+            "NOC application?', 'Confirm that my registration is complete'). 'action' if they ask "
+            "the assistant to do something for them (e.g. 'Register me for the placement drive', "
+            "'Forward my NOC request to the HOD', 'Mark me present'). Otherwise 'information': they "
+            "want to know a rule, process, eligibility, document or contact (e.g. 'How do I apply "
+            "for leave?')."
+        ),
+    )
+    needs_clarification: bool = Field(
+        default=False,
+        description=(
+            "True only if the question can't be answered as asked: it is a bare topic whose answer "
+            "depends on details the student hasn't given (e.g. 'fees?' -- which programme and year?), "
+            "it refers to something not said in the recent conversation ('its fees', 'that rule'), or "
+            "it relies on details the student says they gave earlier but which aren't in the recent "
+            "conversation. False for any question that can be answered as it stands."
+        ),
+    )
+    clarifying_question: Optional[str] = Field(
+        default=None,
+        description="When needs_clarification is true: one short question asking for exactly the missing detail.",
+    )
 
 
 class ChatState(TypedDict, total=False):
@@ -100,9 +143,88 @@ class ChatState(TypedDict, total=False):
     confidence: float
     alternative_domain: Optional[str]
     low_confidence: bool
+    # "status": where their own request stands, which Querio can't know. "action": do something for
+    # them, which Querio can't do. Both are declined (04_scope_and_guardrails.md §3).
+    request_type: str
+    # Set when the question can't be answered as asked; the answer is then this question back.
+    clarification: Optional[str]
+    # Everything retrieved, as given to the model (and to evaluation).
     documents: list
     answer: str
+    # The few documents the answer draws on, shown to the student as citations.
+    sources: list
     guidance_only: bool
+
+
+# Querio never tracks requests (Project_Details/04_scope_and_guardrails.md), so phrasings that are
+# unmistakably about the student's own request are recognised here rather than left to the
+# classifier alone. Anything subtler is still caught by Classification.request_type.
+_STATUS_REQUEST = re.compile(
+    r"""
+    \b(?:status|progress)\ of\ (?:my|our)\b                       # "the status of my NOC application"
+    | \btrack\ (?:my|our)\b                                         # "track my leave request"
+    | \b(?:has|have|is|was|were|did)\ (?:my|our)\ (?:[\w'-]+\ ){0,3}(?:been\ |got\ |get\ |gone\ )?
+      (?:approved|accepted|rejected|processed|sanctioned|granted|forwarded|cleared|completed?|done
+        |received|submitted|verified|confirmed|issued)
+      (?:\ yet|\ already|\ or\ not)?\s*(?:[?.!]|$)                  # "has my leave been approved?",
+                                                                    # not "is my leave granted if ..."
+    | (?:^|[.!?,;]\s*|\b(?:please|pls|kindly|can\ you|could\ you)\ )
+      confirm\ (?:that\ |whether\ |if\ )?(?:my|our|it|it's|its|this)\b  # "confirm my registration is done"
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# Requests that open with an instruction to act on the student's own thing ("Forward my NOC request",
+# "Register me for the drive", "Apply for leave on my behalf"). Kept narrow so questions phrased
+# as commands ("Send me the syllabus") or about someone else acting ("Can my parents submit it on
+# my behalf?") stay information requests.
+_ACTION_REQUEST = re.compile(
+    r"""
+    ^(?:(?:please|pls|kindly|can\ you|could\ you|would\ you|will\ you|can\ u|i\ want\ you\ to|i\ need\ you\ to)\ )*
+    (?:
+      (?:submit|register|enrol|enroll|apply|forward|send|mark|approve|cancel|book|pay|update|fill|sign|file|raise|withdraw)
+      (?:\ (?:my|our)\b|\b.*\b(?:for\ me|on\ my\ behalf)\b)       # "submit my ...", "apply ... on my behalf"
+    | (?:register|enrol|enroll|sign|mark|book|add|put)\ (?:me|us)\b  # "register me ...", "mark me present"
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+DEFAULT_CONTACT = "the relevant department office"
+
+ACTION_DECLINE = (
+    "I can't do that for you: I can explain the process, but I can't submit, register, forward, approve "
+    "or record anything on your behalf."
+)
+
+# Added to the answer prompt for an action request; the decline above is put in front of the answer.
+ACTION_INSTRUCTION = (
+    "The student asked you to do something for them, which you cannot do. That has already been "
+    "said, so don't apologise or say it again. Explain only how they can do it themselves, as the "
+    "context describes it: the steps, documents and who to contact. Leave out rules about anything "
+    "else. If the context doesn't describe how to do it, say so in one sentence and suggest checking "
+    "with {contact}."
+)
+
+
+def _request_type(query: str, classified: str) -> str:
+    """The classifier's request type, unless the wording itself makes it a status or action request."""
+    text = " ".join(query.replace("’", "'").split())
+    if _STATUS_REQUEST.search(text):
+        return "status"
+    if _ACTION_REQUEST.search(text):
+        return "action"
+    return classified
+
+
+def _status_reply(state: ChatState) -> str:
+    """Fixed reply to "has my request been approved?": Querio can't know, so say who can."""
+    domain = None if state.get("low_confidence") else DOMAINS.get(state.get("domain"))
+    contact = domain.contact if domain and domain.contact else DEFAULT_CONTACT
+    return (
+        "I can't see or track the status of your requests, applications or records. I can only "
+        f"explain the college's rules and processes, so to find out where yours stands, please check with {contact}."
+    )
 
 
 def _extract_text(content) -> str:
@@ -176,7 +298,8 @@ def classify_node(state: ChatState) -> ChatState:
         f"question or a reply to your own earlier clarifying question refers to, not to "
         f"override what's actually being asked now):\n{history_block}\n"
         if history_block
-        else ""
+        # Said explicitly so "as I told you..." or "what about its fees?" are recognised as unanswerable.
+        else "\nThere is no earlier conversation: this is the student's first message.\n"
     )
     prompt = (
         "You are a routing classifier for a college assistant. The assistant currently only "
@@ -187,16 +310,20 @@ def classify_node(state: ChatState) -> ChatState:
         f"Question: {state['query']}"
     )
     result = invoke_with_fallback(lambda model: model.with_structured_output(Classification), prompt)
+    clarifying_question = (result.clarifying_question or "").strip()
     return {
         "domain": result.domain,
         "confidence": result.confidence,
         "alternative_domain": result.alternative_domain,
         "low_confidence": result.confidence < CONFIDENCE_THRESHOLD,
+        "request_type": _request_type(state["query"], result.request_type),
+        "clarification": clarifying_question if result.needs_clarification and clarifying_question else None,
     }
 
 
 def retrieve_node(state: ChatState) -> ChatState:
-    if state.get("low_confidence"):
+    if state.get("low_confidence") or state.get("request_type") == "status" or state.get("clarification"):
+        # A fixed reply or a question back follows, so there is nothing to look up (and no sources to show).
         return {"documents": []}
     domain_code = state["domain"]
     if domain_code not in DOMAINS:
@@ -206,6 +333,20 @@ def retrieve_node(state: ChatState) -> ChatState:
 
 
 def generate_node(state: ChatState) -> ChatState:
+    if state.get("request_type") == "status":
+        # Before the clarifying question: "has my request been approved?" needs no topic to answer.
+        return {"answer": _status_reply(state)}
+
+    action = state.get("request_type") == "action"
+    if state.get("clarification") and not action:
+        # The classifier's specific question ("Which programme and year?") beats the generic one.
+        return {"answer": state["clarification"]}
+
+    domain = DOMAINS.get(state.get("domain"))
+    if action and (state.get("low_confidence") or domain is None):
+        # No topic to explain a process from: decline, then say what Querio does cover.
+        return {"answer": f"{ACTION_DECLINE}\n\n{TOPICS_MESSAGE}"}
+
     if state.get("low_confidence"):
         return {"answer": _build_clarifying_message(state)}
 
@@ -214,7 +355,7 @@ def generate_node(state: ChatState) -> ChatState:
         if state.get("domain") not in DOMAINS:
             # UNROUTED: tell the student what Querio does cover instead of a bare "no information".
             return {"answer": OUT_OF_SCOPE_MESSAGE}
-        return {"answer": NO_ANSWER_MESSAGE}
+        return {"answer": f"{ACTION_DECLINE}\n\n{NO_ANSWER_MESSAGE}" if action else NO_ANSWER_MESSAGE}
 
     context = "\n\n".join(
         f"[{doc.metadata.get('source_name', 'unknown')} — {doc.metadata.get('source_section', '')}]\n{doc.page_content}"
@@ -237,9 +378,10 @@ def generate_node(state: ChatState) -> ChatState:
     ]
     if state.get("guidance_only"):
         system_instructions.append(GUIDANCE_ONLY_SYSTEM_NOTE)
-    domain = DOMAINS.get(state.get("domain"))
     if domain and domain.answer_instructions:
         system_instructions.append(domain.answer_instructions)
+    if action:
+        system_instructions.append(ACTION_INSTRUCTION.format(contact=domain.contact or DEFAULT_CONTACT))
 
     history_block = _format_history(state.get("history"))
     if history_block:
@@ -257,9 +399,57 @@ def generate_node(state: ChatState) -> ChatState:
     )
     response = invoke_with_fallback(lambda model: model, prompt)
     answer = _student_facing(_extract_text(response.content))
+    sources = _select_sources(answer, documents)
+    if action:
+        # Fixed text, so the decline can't be dropped or reworded by the model.
+        answer = f"{ACTION_DECLINE}\n\n{answer}"
     if domain and domain.answer_disclaimer:
         answer = _append_disclaimer(answer, domain.answer_disclaimer)
-    return {"answer": answer}
+    return {"answer": answer, "sources": sources}
+
+
+MAX_SOURCES = 3
+# A document is cited if it shares at least this share of the answer words that the best-matching
+# document shares -- so pages retrieved for a stray word (e.g. "semester") are left out.
+SOURCE_MIN_SHARE = 0.5
+# An answer whose first sentence says the documents don't cover the question, and that is no longer
+# than this, has nothing to cite.
+_NOT_FOUND_MAX_CHARS = 400
+_NOT_FOUND_ANSWER = re.compile(
+    r"^[^.!?\n]*\b(?:"
+    r"couldn't find|could not find|can't find|cannot find|no information"
+    r"|(?:don't|do not) have (?:any |the )?information"
+    r"|(?:does not|doesn't|do not|don't) (?:mention|specify|say|cover|contain|include|state)"
+    r"|(?:is|are) not (?:mentioned|specified|covered|stated|listed)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _select_sources(answer: str, documents: list) -> list:
+    """The few retrieved documents the answer draws on, most-used first, one per source section.
+    None when the answer only says the documents don't cover the question."""
+    answer = answer.replace("’", "'")
+    if not documents or (len(answer) <= _NOT_FOUND_MAX_CHARS and _NOT_FOUND_ANSWER.search(answer)):
+        return []
+    answer_tokens = _significant_tokens(answer)
+    scored = [
+        (len(answer_tokens & _significant_tokens(doc.page_content)), rank, doc)
+        for rank, doc in enumerate(documents)
+    ]
+    best = max(score for score, _, _ in scored)
+    if best == 0:
+        return documents[:1]  # answer shares no words with anything: fall back to the top retrieved
+    picked, seen = [], set()
+    for score, _, doc in sorted(scored, key=lambda item: (-item[0], item[1])):
+        key = (doc.metadata.get("source_name"), doc.metadata.get("source_section"))
+        if score < SOURCE_MIN_SHARE * best or key in seen:
+            continue
+        seen.add(key)
+        picked.append(doc)
+        if len(picked) == MAX_SOURCES:
+            break
+    return picked
 
 
 # Prompt wording the model sometimes echoes to the student ("The provided context does not mention...").
@@ -341,4 +531,6 @@ def answer_query(query: str, history: Optional[list[dict]] = None) -> ChatState:
     small_talk = _small_talk_reply(query)
     if small_talk is not None:
         return _fixed_reply(query, history, small_talk, confidence=1.0)
+    if not history and _NEEDS_EARLIER_MESSAGES.search(" ".join(query.replace("’", "'").split())):
+        return _fixed_reply(query, history, NO_EARLIER_MESSAGES_REPLY, confidence=0.0)
     return get_graph().invoke({"query": query, "history": history or []})

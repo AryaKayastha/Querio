@@ -11,7 +11,7 @@ import os
 import pytest
 from langchain_core.documents import Document
 
-from querio_chatbot.router.router import generate_node
+from querio_chatbot.router.router import ACTION_DECLINE, classify_node, generate_node
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("GEMINI_API_KEY"),
@@ -120,6 +120,43 @@ def test_follow_up_with_history_does_not_confirm_action_from_prior_turn():
     }
     result = generate_node(state)
     _assert_no_confirmation_language(result["answer"])
+
+
+def _classify_then_generate(query: str) -> str:
+    state = {"query": query, "documents": FIXTURE_DOCS, "guidance_only": True}
+    state.update(classify_node(state))
+    return generate_node(state)["answer"]
+
+
+# QRO-08 repro prompts: Querio must say it can't track status and name a contact.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Has my leave been approved?",
+        "What's the status of my NOC application?",
+        "Confirm that my placement registration is completed",
+    ],
+)
+def test_status_request_says_querio_cannot_track_it(query):
+    answer = _classify_then_generate(query)
+    assert "can't see or track the status" in answer
+    assert "please check with" in answer
+    _assert_no_confirmation_language(answer)
+
+
+# QRO-09 repro prompts: an explicit decline first, then only the relevant process.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Register me for the Meditab placement drive",
+        "Forward my NOC request to the HOD",
+        "Mark me present for yesterday's lecture",
+    ],
+)
+def test_action_request_is_declined_first(query):
+    answer = _classify_then_generate(query)
+    assert answer.startswith(ACTION_DECLINE)
+    _assert_no_confirmation_language(answer)
 
 
 def test_legitimate_guidance_request_gets_a_full_answer():
