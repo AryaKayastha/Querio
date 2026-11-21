@@ -96,7 +96,7 @@ python -m querio_chatbot.scripts.chat_cli
 
 ## Evaluation
 
-- **Routing accuracy** — `python -m querio_chatbot.eval.routing_accuracy`
+- **Routing accuracy** — `python -m querio_chatbot.eval.routing_accuracy` reports accuracy per kind of case (overlaps, typos, Hinglish, ...) and a confusion matrix; add `--repeat 3` to count a question wrong if any run routes it differently
 - **D6 guidance-only boundary** — `tests/test_guidance_only_boundary.py` (skipped unless `GEMINI_API_KEY` is set)
 - **Hybrid retrieval** — `tests/test_hybrid_retrieval.py` covers BM25/RRF weighting and re-rank helpers without needing Gemini
 - **Answer quality** — `python -m querio_chatbot.eval.answer_quality` runs RAGAS faithfulness, answer relevance, context precision, and context recall against `src/querio_chatbot/eval/golden_qa.py`, reporting each domain separately
