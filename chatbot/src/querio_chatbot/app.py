@@ -1,11 +1,13 @@
 from typing import Literal
 
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
+from querio_chatbot.config import ENABLE_API_DOCS
 from querio_chatbot.router.router import answer_query
 
-app = FastAPI(title="Querio Chatbot")
+_API_DOCS_OFF = {"docs_url": None, "redoc_url": None, "openapi_url": None}
+app = FastAPI(title="Querio Chatbot", **({} if ENABLE_API_DOCS else _API_DOCS_OFF))
 
 
 class Turn(BaseModel):
@@ -16,6 +18,15 @@ class Turn(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     history: list[Turn] = []
+
+    @field_validator("query")
+    @classmethod
+    def _strip_and_require_text(cls, query: str) -> str:
+        # A blank query is a client error (422), not something to spend an LLM call on.
+        query = query.strip()
+        if not query:
+            raise ValueError("query must not be empty")
+        return query
 
 
 class SourceRef(BaseModel):

@@ -9,6 +9,16 @@ load_dotenv(dotenv_path=BACKEND_ROOT / ".env", override=True)
 CHATBOT_API_URL = os.environ.get("CHATBOT_API_URL", "http://localhost:8001").rstrip("/")
 CHATBOT_TIMEOUT_SECONDS = float(os.environ.get("CHATBOT_TIMEOUT_SECONDS", "25"))
 
+
+def env_flag(name: str) -> bool:
+    """True if the environment variable is set to 1, true, yes or on (any case)."""
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Swagger UI (/docs), ReDoc (/redoc) and the OpenAPI schema (/openapi.json) map every endpoint for
+# anyone who can reach the port, so they're off unless turned on for local development.
+ENABLE_API_DOCS = env_flag("ENABLE_API_DOCS")
+
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql+psycopg://querio:querio@localhost:5432/querio"
 )

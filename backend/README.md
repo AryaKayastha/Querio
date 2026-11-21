@@ -80,6 +80,8 @@ uvicorn querio_backend.bridge:app --reload --port 8000
 
 **Ports:** backend bridge **8000** · chatbot **8001** · frontend **5173**. Do not point the frontend at 8001.
 
+**API docs:** Swagger UI (`/docs`) and `/openapi.json` are off by default. Set `ENABLE_API_DOCS=true` in `.env` to use them on your own machine; leave it off anywhere else.
+
 Start the chatbot on port `8001` first:
 
 ```powershell

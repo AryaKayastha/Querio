@@ -1,7 +1,10 @@
 ﻿import httpx
 import pytest
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from querio_backend import bridge as app_module
+from querio_backend.db.engine import get_db
 from querio_backend.session_store import InMemorySessionStore
 
 
@@ -159,6 +162,28 @@ def test_chat_returns_bad_gateway_when_chatbot_fails(monkeypatch, error, fake_db
 
     assert raised.value.status_code == 502
     assert fake_db.added == []
+
+
+@pytest.mark.parametrize("query", ["", "   ", "\n\t "])
+def test_blank_query_is_rejected_before_reaching_the_chatbot(monkeypatch, fake_db, query):
+    def fail(*args, **kwargs):
+        raise AssertionError("a blank query must not be forwarded to the chatbot")
+
+    monkeypatch.setattr(app_module.httpx, "post", fail)
+    app_module.app.dependency_overrides[get_db] = lambda: fake_db
+    try:
+        response = TestClient(app_module.app).post("/chat", json={"query": query, "session_id": "s1"})
+    finally:
+        app_module.app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert fake_db.added == []
+
+
+def test_query_is_forwarded_without_surrounding_whitespace():
+    assert app_module.ChatRequest(query="  How much are the fees?\n", session_id="s1").query == "How much are the fees?"
+    with pytest.raises(ValidationError):
+        app_module.ChatRequest(query="   ", session_id="s1")
 
 
 def test_health_ok_when_chatbot_healthy(monkeypatch):
