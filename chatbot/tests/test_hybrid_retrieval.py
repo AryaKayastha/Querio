@@ -1,3 +1,5 @@
+import functools
+
 import pytest
 from langchain_core.documents import Document
 from rank_bm25 import BM25Okapi
@@ -57,18 +59,49 @@ class _FakeCollection:
         self._collection = type("Collection", (), {"count": staticmethod(lambda: count)})()
 
 
+@functools.lru_cache
+def _real_chunks(domain_code):
+    return tuple(load_domain_chunks(DOMAINS[domain_code]))
+
+
+def _retrieve_from_real_domain_by_keyword(monkeypatch, domain_code, query):
+    """retrieve() over a domain's real documents with keyword search only (no embeddings needed)."""
+    chunks = _real_chunks(domain_code)
+    index = (BM25Okapi([_tokenize(chunk.page_content) for chunk in chunks]), chunks)
+    monkeypatch.setattr(retriever, "_bm25_index", lambda code: index)
+    monkeypatch.setattr(retriever, "_get_collection", lambda code: _FakeCollection(len(chunks)))
+    monkeypatch.setattr(retriever, "_semantic_candidates", lambda code, query, k: [])
+    return retrieve(domain_code, query)
+
+
+def _retrieve_from_real_d4_by_keyword(monkeypatch, query):
+    return _retrieve_from_real_domain_by_keyword(monkeypatch, "D4", query)
+
+
+def test_bounced_cheque_question_retrieves_the_rs_300_penalty_once_routed_to_d5(monkeypatch):
+    # QRO-04 was a routing miss (UNROUTED); within D5 the fee document's "Cheque rebounced invites a
+    # penalty of Rs. 300/-" is found. This guards that half.
+    results = _retrieve_from_real_domain_by_keyword(monkeypatch, "D5", "What is the penalty if my fee cheque bounces?")
+    assert any("penalty of Rs. 300" in doc.page_content for doc in results[:3])
+
+
 def test_dress_code_question_retrieves_the_formal_attire_rule(monkeypatch):
-    # QRO-10, on the real Placement Guidelines chunks (no embeddings needed): the rule never says
-    # "dress code", so keyword search used to rank it 12th behind the penalty line.
-    chunks = load_domain_chunks(DOMAINS["D4"])
-    index = (BM25Okapi([_tokenize(chunk.page_content) for chunk in chunks]), tuple(chunks))
-    monkeypatch.setattr(retriever, "_bm25_index", lambda domain_code: index)
-    monkeypatch.setattr(retriever, "_get_collection", lambda domain_code: _FakeCollection(len(chunks)))
-    monkeypatch.setattr(retriever, "_semantic_candidates", lambda domain_code, query, k: [])
-
-    results = retrieve("D4", "What is the dress code for placement drives?")
-
+    # QRO-10: the rule never says "dress code", so keyword search used to rank it 12th behind the
+    # penalty line.
+    results = _retrieve_from_real_d4_by_keyword(monkeypatch, "What is the dress code for placement drives?")
     assert any("formal attire and shoes" in doc.page_content for doc in results[:3])
+
+
+@pytest.mark.parametrize(
+    "query", ["What documents do I need for an NOC?", "What is the NOC process for doing an internship?"]
+)
+def test_noc_questions_retrieve_the_noc_note(monkeypatch, query):
+    # QRO-03: no D4 document covered NOC; NOC_Process.md now points students to their department's TPO.
+    results = _retrieve_from_real_d4_by_keyword(monkeypatch, query)
+    noc = [doc for doc in results[:3] if doc.metadata.get("source_name") == "NOC Process"]
+    assert noc, [doc.metadata.get("source_name") for doc in results[:3]]
+    assert "department's Training and Placement Officer (TPO)" in noc[0].page_content
+    assert noc[0].metadata["source_section"] == "No Objection Certificate (NOC)"
 
 
 def test_tokenize_lowercases_and_keeps_percent_terms():
