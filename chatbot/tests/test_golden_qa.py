@@ -3,9 +3,14 @@ import pytest
 from querio_chatbot.eval.golden_qa import GOLDEN_QA_SET, validate_golden_qa
 
 
-def test_golden_set_has_cases_for_each_active_evaluation_domain():
-    assert {case["domain"] for case in GOLDEN_QA_SET} == {"D5", "D6"}
+def test_golden_set_has_cases_for_each_evaluated_domain():
+    assert {case["domain"] for case in GOLDEN_QA_SET} == {"D4", "D5", "D6"}
     validate_golden_qa()
+
+
+def test_validate_golden_qa_rejects_unknown_domains():
+    with pytest.raises(ValueError, match="Unsupported"):
+        validate_golden_qa([{"id": "bad", "domain": "D9", "question": "Q?", "reference_answer": "A."}])
 
 
 def test_golden_set_ids_are_unique_and_questions_are_nonempty():

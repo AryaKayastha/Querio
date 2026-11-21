@@ -66,6 +66,27 @@ def _normalize_query(query: str) -> str:
     return _SEM_THEN_NUMBER_RE.sub(r"semester \1", query)
 
 
+# Student wording that a domain's documents put differently: when the question matches, the
+# documents' own words are added to it for both keyword and semantic search. Per domain, so an NCC
+# "uniform" question in D1 isn't pulled towards placement rules.
+_QUERY_EXPANSIONS: dict[str, list[tuple[re.Pattern, str]]] = {
+    "D4": [
+        # The Placement Guidelines rule is "Students must wear formal attire and shoes" (General
+        # Rules); the words "dress code" only appear in the penalty for breaking it (QRO-10).
+        (re.compile(r"\b(?:dress|attire|outfit|clothes|clothing|wear)\b", re.IGNORECASE), "formal attire shoes"),
+    ],
+}
+
+
+def _expand_query(domain_code: str, query: str) -> str:
+    additions = [
+        terms
+        for pattern, terms in _QUERY_EXPANSIONS.get(domain_code, [])
+        if pattern.search(query) and terms.lower() not in query.lower()
+    ]
+    return " ".join([query, *additions])
+
+
 def _keyword_weight(domain_code: str) -> float:
     return KEYWORD_WEIGHT_BY_DOMAIN.get(domain_code, 0.40)
 
@@ -220,7 +241,7 @@ def retrieve(domain_code: str, query: str, k: int = 8) -> list[Document]:
 
     candidate_k = max(k, min(CANDIDATE_K, collection._collection.count()))
     keyword_weight = _keyword_weight(domain_code)
-    query = _normalize_query(query)
+    query = _expand_query(domain_code, _normalize_query(query))
 
     semantic_docs = _semantic_candidates(domain_code, query, candidate_k)
     keyword_docs = _bm25_candidates(domain_code, query, candidate_k)

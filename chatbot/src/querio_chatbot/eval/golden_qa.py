@@ -1,10 +1,21 @@
 """Golden question/answer cases for retrieval and answer-quality evaluation.
 
-Keep cases grounded in the active D5 and D6 corpora. Add cases for a domain as its
+Keep each case grounded in its domain's source documents. Add cases for a domain as its
 source corpus becomes available; the evaluator reports scores per domain.
 """
 
+from querio_chatbot.config import DOMAINS
+
 GOLDEN_QA_SET = [
+    {
+        "id": "d4-dress-code-01",
+        "domain": "D4",
+        "question": "What is the dress code for placement drives?",
+        "reference_answer": (
+            "Students must wear formal attire and shoes during the recruitment process; a student not "
+            "following the dress code is not allowed to take part in that drive (Placement Guidelines)."
+        ),
+    },
     {
         "id": "d5-fees-01",
         "domain": "D5",
@@ -55,6 +66,6 @@ def validate_golden_qa(cases: list[dict] | None = None) -> None:
             raise ValueError(f"Golden case {case.get('id', '<unknown>')} is missing: {sorted(missing)}")
         if case["id"] in ids:
             raise ValueError(f"Duplicate golden case id: {case['id']}")
-        if case["domain"] not in {"D5", "D6"}:
+        if case["domain"] not in DOMAINS:
             raise ValueError(f"Unsupported golden case domain: {case['domain']}")
         ids.add(case["id"])

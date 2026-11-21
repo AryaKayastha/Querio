@@ -1,8 +1,14 @@
+import pytest
 from langchain_core.documents import Document
+from rank_bm25 import BM25Okapi
 
+from querio_chatbot.config import DOMAINS
+from querio_chatbot.ingestion.ingest import load_domain_chunks
+from querio_chatbot.retrieval import retriever
 from querio_chatbot.retrieval.retriever import (
     KEYWORD_WEIGHT_BY_DOMAIN,
     _bm25_candidates,
+    _expand_query,
     _keyword_weight,
     _normalize_query,
     _rerank,
@@ -23,6 +29,46 @@ def test_normalize_query_rewrites_semester_abbreviations():
 def test_normalize_query_leaves_non_semester_numbers_alone():
     assert _normalize_query("75% attendance rule") == "75% attendance rule"
     assert _normalize_query("what is semester 2") == "what is semester 2"
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["What is the dress code for placement drives?", "What should I wear for the Meditab drive?", "placement attire"],
+)
+def test_expand_query_adds_the_guidelines_wording_for_dress_questions(query):
+    assert _expand_query("D4", query) == f"{query} formal attire shoes"
+
+
+@pytest.mark.parametrize(
+    ("domain_code", "query"),
+    [
+        ("D4", "What is the eligibility for on-campus placements?"),
+        ("D1", "What is the NCC uniform?"),  # only D4 expands
+        ("D1", "What should I wear for the NCC camp?"),
+        ("D4", "Must I wear formal attire shoes?"),  # already in the document's words
+    ],
+)
+def test_expand_query_leaves_other_questions_alone(domain_code, query):
+    assert _expand_query(domain_code, query) == query
+
+
+class _FakeCollection:
+    def __init__(self, count):
+        self._collection = type("Collection", (), {"count": staticmethod(lambda: count)})()
+
+
+def test_dress_code_question_retrieves_the_formal_attire_rule(monkeypatch):
+    # QRO-10, on the real Placement Guidelines chunks (no embeddings needed): the rule never says
+    # "dress code", so keyword search used to rank it 12th behind the penalty line.
+    chunks = load_domain_chunks(DOMAINS["D4"])
+    index = (BM25Okapi([_tokenize(chunk.page_content) for chunk in chunks]), tuple(chunks))
+    monkeypatch.setattr(retriever, "_bm25_index", lambda domain_code: index)
+    monkeypatch.setattr(retriever, "_get_collection", lambda domain_code: _FakeCollection(len(chunks)))
+    monkeypatch.setattr(retriever, "_semantic_candidates", lambda domain_code, query, k: [])
+
+    results = retrieve("D4", "What is the dress code for placement drives?")
+
+    assert any("formal attire and shoes" in doc.page_content for doc in results[:3])
 
 
 def test_tokenize_lowercases_and_keeps_percent_terms():
