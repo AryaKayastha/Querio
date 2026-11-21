@@ -217,6 +217,38 @@ def _request_type(query: str, classified: str) -> str:
     return classified
 
 
+# D4 (placement) and D6 (leave & attendance) overlap on "attendance": placement rules require
+# attendance at placement activities, while D6 covers class attendance and leave. The classifier
+# flipped between them for the same question (QRO-05), so a question that touches both is decided
+# here: D6 if it's about leave-type attendance (taking leave, being absent, missing classes, getting
+# attendance for time away), D4 otherwise (e.g. "minimum attendance for placement eligibility").
+_ATTENDANCE_WORDS = re.compile(
+    r"\b(?:attendance|leaves?|absent|absence|present|class(?:es)?|lectures?|detention|condon\w*)\b", re.IGNORECASE
+)
+_PLACEMENT_WORDS = re.compile(
+    r"\b(?:placements?|drives?|recruit\w*|compan(?:y|ies)|cdpc|tpo|offers?|internships?|jobs?|interviews?|noc|ppts?)\b",
+    re.IGNORECASE,
+)
+_LEAVE_KIND = re.compile(
+    r"""
+    \b(?:leaves?|absent|absence|detention|condon\w*|medical)\b
+    | \b(?:miss|missed|missing|skip|skipped|skipping|bunk\w*)\ (?:a\ |my\ |the\ |some\ )?(?:class(?:es)?|lectures?)\b
+    | \battendance\ (?:be\ )?(?:credit\w*|given|granted|counted|marked|considered)\b   # "is attendance given for ..."
+    | \b(?:get|give|grant|mark|count)\ (?:me\ )?(?:attendance|present)\b                 # "will I get attendance ..."
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _placement_or_leave(query: str, domain: str, alternative: Optional[str]) -> Optional[str]:
+    """D4 or D6 for a question that touches both and that the classifier put in one of them, else None."""
+    if not {domain, alternative} & {"D4", "D6"}:
+        return None
+    if not (_ATTENDANCE_WORDS.search(query) and _PLACEMENT_WORDS.search(query)):
+        return None
+    return "D6" if _LEAVE_KIND.search(query) else "D4"
+
+
 def _status_reply(state: ChatState) -> str:
     """Fixed reply to "has my request been approved?": Querio can't know, so say who can."""
     domain = None if state.get("low_confidence") else DOMAINS.get(state.get("domain"))
@@ -311,11 +343,17 @@ def classify_node(state: ChatState) -> ChatState:
     )
     result = invoke_with_fallback(lambda model: model.with_structured_output(Classification), prompt)
     clarifying_question = (result.clarifying_question or "").strip()
+    domain, alternative = result.domain, result.alternative_domain
+    low_confidence = result.confidence < CONFIDENCE_THRESHOLD
+    overlap = _placement_or_leave(state["query"], domain, alternative)
+    if overlap:
+        # Decided by the rule above, so neither a flip nor a "placement or leave?" question is needed.
+        domain, alternative, low_confidence = overlap, None, False
     return {
-        "domain": result.domain,
+        "domain": domain,
         "confidence": result.confidence,
-        "alternative_domain": result.alternative_domain,
-        "low_confidence": result.confidence < CONFIDENCE_THRESHOLD,
+        "alternative_domain": alternative,
+        "low_confidence": low_confidence,
         "request_type": _request_type(state["query"], result.request_type),
         "clarification": clarifying_question if result.needs_clarification and clarifying_question else None,
     }
