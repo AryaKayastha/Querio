@@ -91,14 +91,16 @@ class Classification(BaseModel):
             "than one, otherwise null"
         ),
     )
-    request_type: Literal["information", "status"] = Field(
+    request_type: Literal["information", "status", "action"] = Field(
         default="information",
         description=(
             "'status' if the student asks about the state of their OWN request, application, "
             "registration or record (e.g. 'Has my leave been approved?', 'What is the status of my "
-            "NOC application?', 'Confirm that my registration is complete'). Otherwise 'information': "
-            "they want to know a rule, process, eligibility, document or contact (e.g. 'How do I "
-            "apply for leave?')."
+            "NOC application?', 'Confirm that my registration is complete'). 'action' if they ask "
+            "the assistant to do something for them (e.g. 'Register me for the placement drive', "
+            "'Forward my NOC request to the HOD', 'Mark me present'). Otherwise 'information': they "
+            "want to know a rule, process, eligibility, document or contact (e.g. 'How do I apply "
+            "for leave?')."
         ),
     )
 
@@ -110,7 +112,8 @@ class ChatState(TypedDict, total=False):
     confidence: float
     alternative_domain: Optional[str]
     low_confidence: bool
-    # "status" means the student asked where their own request stands, which Querio can't know.
+    # "status": where their own request stands, which Querio can't know. "action": do something for
+    # them, which Querio can't do. Both are declined (04_scope_and_guardrails.md §3).
     request_type: str
     documents: list
     answer: str
@@ -135,13 +138,47 @@ _STATUS_REQUEST = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+# Requests that open with an instruction to act on the student's own thing ("Forward my NOC request",
+# "Register me for the drive", "Apply for leave on my behalf"). Kept narrow so questions phrased
+# as commands ("Send me the syllabus") or about someone else acting ("Can my parents submit it on
+# my behalf?") stay information requests.
+_ACTION_REQUEST = re.compile(
+    r"""
+    ^(?:(?:please|pls|kindly|can\ you|could\ you|would\ you|will\ you|can\ u|i\ want\ you\ to|i\ need\ you\ to)\ )*
+    (?:
+      (?:submit|register|enrol|enroll|apply|forward|send|mark|approve|cancel|book|pay|update|fill|sign|file|raise|withdraw)
+      (?:\ (?:my|our)\b|\b.*\b(?:for\ me|on\ my\ behalf)\b)       # "submit my ...", "apply ... on my behalf"
+    | (?:register|enrol|enroll|sign|mark|book|add|put)\ (?:me|us)\b  # "register me ...", "mark me present"
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 DEFAULT_CONTACT = "the relevant department office"
+
+ACTION_DECLINE = (
+    "I can't do that for you: I can explain the process, but I can't submit, register, forward, approve "
+    "or record anything on your behalf."
+)
+
+# Added to the answer prompt for an action request; the decline above is put in front of the answer.
+ACTION_INSTRUCTION = (
+    "The student asked you to do something for them, which you cannot do. That has already been "
+    "said, so don't apologise or say it again. Explain only how they can do it themselves, as the "
+    "context describes it: the steps, documents and who to contact. Leave out rules about anything "
+    "else. If the context doesn't describe how to do it, say so in one sentence and suggest checking "
+    "with {contact}."
+)
 
 
 def _request_type(query: str, classified: str) -> str:
-    """The classifier's request type, unless the wording itself makes it a status question."""
+    """The classifier's request type, unless the wording itself makes it a status or action request."""
     text = " ".join(query.replace("’", "'").split())
-    return "status" if _STATUS_REQUEST.search(text) else classified
+    if _STATUS_REQUEST.search(text):
+        return "status"
+    if _ACTION_REQUEST.search(text):
+        return "action"
+    return classified
 
 
 def _status_reply(state: ChatState) -> str:
@@ -261,6 +298,12 @@ def generate_node(state: ChatState) -> ChatState:
         # Before the clarifying question: "has my request been approved?" needs no topic to answer.
         return {"answer": _status_reply(state)}
 
+    action = state.get("request_type") == "action"
+    domain = DOMAINS.get(state.get("domain"))
+    if action and (state.get("low_confidence") or domain is None):
+        # No topic to explain a process from: decline, then say what Querio does cover.
+        return {"answer": f"{ACTION_DECLINE}\n\n{TOPICS_MESSAGE}"}
+
     if state.get("low_confidence"):
         return {"answer": _build_clarifying_message(state)}
 
@@ -269,7 +312,7 @@ def generate_node(state: ChatState) -> ChatState:
         if state.get("domain") not in DOMAINS:
             # UNROUTED: tell the student what Querio does cover instead of a bare "no information".
             return {"answer": OUT_OF_SCOPE_MESSAGE}
-        return {"answer": NO_ANSWER_MESSAGE}
+        return {"answer": f"{ACTION_DECLINE}\n\n{NO_ANSWER_MESSAGE}" if action else NO_ANSWER_MESSAGE}
 
     context = "\n\n".join(
         f"[{doc.metadata.get('source_name', 'unknown')} — {doc.metadata.get('source_section', '')}]\n{doc.page_content}"
@@ -292,9 +335,10 @@ def generate_node(state: ChatState) -> ChatState:
     ]
     if state.get("guidance_only"):
         system_instructions.append(GUIDANCE_ONLY_SYSTEM_NOTE)
-    domain = DOMAINS.get(state.get("domain"))
     if domain and domain.answer_instructions:
         system_instructions.append(domain.answer_instructions)
+    if action:
+        system_instructions.append(ACTION_INSTRUCTION.format(contact=domain.contact or DEFAULT_CONTACT))
 
     history_block = _format_history(state.get("history"))
     if history_block:
@@ -312,6 +356,9 @@ def generate_node(state: ChatState) -> ChatState:
     )
     response = invoke_with_fallback(lambda model: model, prompt)
     answer = _student_facing(_extract_text(response.content))
+    if action:
+        # Fixed text, so the decline can't be dropped or reworded by the model.
+        answer = f"{ACTION_DECLINE}\n\n{answer}"
     if domain and domain.answer_disclaimer:
         answer = _append_disclaimer(answer, domain.answer_disclaimer)
     return {"answer": answer}

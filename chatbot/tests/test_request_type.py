@@ -1,14 +1,17 @@
 """Guidance-only boundary, request side (Project_Details/04_scope_and_guardrails.md §6), with the model
-faked so no network is needed. QRO-08: status/tracking questions."""
+faked so no network is needed. QRO-08: status/tracking questions. QRO-09: direct action requests."""
 
 from types import SimpleNamespace
 
 import pytest
+from langchain_core.documents import Document
 
 from querio_chatbot.config import DOMAINS
 from querio_chatbot.router import router
 from querio_chatbot.router.router import (
+    ACTION_DECLINE,
     DEFAULT_CONTACT,
+    TOPICS_MESSAGE,
     Classification,
     _request_type,
     answer_query,
@@ -18,6 +21,7 @@ from querio_chatbot.router.router import (
 )
 
 GENERATED = "Generated answer."
+DOCS = [Document(page_content="Register for each drive on the CDPC portal.", metadata={"source_name": "Guidelines"})]
 
 
 def _fake_model(monkeypatch, domain, request_type="information", confidence=0.9):
@@ -125,3 +129,84 @@ def test_retrieval_is_skipped_for_status_questions(monkeypatch):
 def test_every_domain_names_a_contact():
     for domain in DOMAINS.values():
         assert domain.contact, domain.code
+
+
+# --- QRO-09: direct action requests ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Register me for the Meditab placement drive",
+        "Forward my NOC request to the HOD",
+        "Mark me present for yesterday's lecture",
+        "Submit my NOC request for me",
+        "Apply for leave on my behalf",
+        "Please submit my leave application",
+        "Can you register me for the NSS camp?",
+        "Sign me up for the hackathon",
+    ],
+)
+def test_action_wording_is_recognised_whatever_the_classifier_says(query):
+    assert _request_type(query, "information") == "action"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "How do I register for the Meditab drive?",
+        "apply leave process",
+        "Send me the syllabus for semester 5",
+        "Can my parents submit the undertaking on my behalf?",
+        "What is the process to forward an NOC request to the HOD?",
+        "Register for placements: what is the eligibility?",
+    ],
+)
+def test_questions_that_only_mention_an_action_are_not_action_requests(query):
+    assert _request_type(query, "information") == "information"
+
+
+def test_classifier_can_still_flag_an_action_request_the_wording_check_misses(monkeypatch):
+    _fake_model(monkeypatch, "D4", request_type="action")
+    assert classify_node({"query": "I want to join the Meditab drive, do it for me"})["request_type"] == "action"
+
+
+@pytest.mark.parametrize(
+    ("query", "domain"),
+    [
+        ("Register me for the Meditab placement drive", "D4"),
+        ("Forward my NOC request to the HOD", "D4"),
+        ("Mark me present for yesterday's lecture", "D6"),
+    ],
+)
+def test_action_requests_start_with_a_decline_then_explain_the_process(monkeypatch, query, domain):
+    prompts = _fake_model(monkeypatch, domain)
+    monkeypatch.setattr(router, "retrieve", lambda domain_code, query: DOCS)
+
+    answer = answer_query(query)["answer"]
+
+    assert answer.startswith(ACTION_DECLINE)
+    assert answer == f"{ACTION_DECLINE}\n\n{GENERATED}"
+    # The model is told to stick to how the student can do it, naming the domain's contact.
+    assert "Explain only how they can do it themselves" in prompts[0]
+    assert DOMAINS[domain].contact in prompts[0]
+
+
+def test_action_request_outside_every_domain_is_declined_with_the_topic_list(monkeypatch):
+    prompts = _fake_model(monkeypatch, "UNROUTED")
+    answer = answer_query("Book me a cab to the airport")["answer"]
+    assert answer == f"{ACTION_DECLINE}\n\n{TOPICS_MESSAGE}"
+    assert prompts == []
+
+
+def test_action_request_with_unclear_topic_is_still_declined_first():
+    state = {"query": "Submit it for me", "domain": "D4", "low_confidence": True, "request_type": "action"}
+    assert generate_node(state)["answer"].startswith(ACTION_DECLINE)
+
+
+def test_information_requests_get_no_decline(monkeypatch):
+    prompts = _fake_model(monkeypatch, "D4")
+    monkeypatch.setattr(router, "retrieve", lambda domain_code, query: DOCS)
+    answer = answer_query("How do I register for the Meditab drive?")["answer"]
+    assert answer == GENERATED
+    assert "Explain only how they can do it themselves" not in prompts[0]
