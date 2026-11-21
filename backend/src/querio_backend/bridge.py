@@ -4,12 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from querio_backend.bridge_config import CHATBOT_API_URL, CHATBOT_TIMEOUT_SECONDS, CONFIDENCE_THRESHOLD
+from querio_backend.bridge_config import CHATBOT_API_URL, CHATBOT_TIMEOUT_SECONDS, CONFIDENCE_THRESHOLD, ENABLE_API_DOCS
 from querio_backend.db.engine import get_db
 from querio_backend.db.models import QueryLog
 from querio_backend.session_store import session_store
 
-app = FastAPI(title="Querio Backend Bridge")
+_API_DOCS_OFF = {"docs_url": None, "redoc_url": None, "openapi_url": None}
+app = FastAPI(title="Querio Backend Bridge", **({} if ENABLE_API_DOCS else _API_DOCS_OFF))
 
 # Vite falls back to the next free port (5174, 5175, ...) when 5173 is already taken by
 # another project's dev server on the same machine -- allow a small range of dev ports

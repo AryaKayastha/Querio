@@ -54,6 +54,8 @@ uvicorn querio_chatbot.app:app --reload --port 8001
 
 **Ports:** chatbot **8001** · backend bridge **8000** · frontend **5173**. Curl this service on **8001**; the browser should only talk to the backend on **8000**.
 
+**API docs:** Swagger UI (`/docs`) and `/openapi.json` are off by default. Set `ENABLE_API_DOCS=true` in `.env` to use them on your own machine; leave it off anywhere else.
+
 The frontend does not call this service directly. The public request flow is:
 
 `frontend:5173` → `backend:8000` → `chatbot:8001`

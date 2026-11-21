@@ -29,6 +29,16 @@ CHAT_PROVIDERS = tuple(
 )
 
 
+def env_flag(name: str) -> bool:
+    """True if the environment variable is set to 1, true, yes or on (any case)."""
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Swagger UI (/docs), ReDoc (/redoc) and the OpenAPI schema (/openapi.json) map every endpoint for
+# anyone who can reach the port, so they're off unless turned on for local development.
+ENABLE_API_DOCS = env_flag("ENABLE_API_DOCS")
+
+
 @dataclass(frozen=True)
 class Domain:
     code: str

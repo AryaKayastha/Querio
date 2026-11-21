@@ -3,9 +3,11 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from querio_chatbot.config import ENABLE_API_DOCS
 from querio_chatbot.router.router import answer_query
 
-app = FastAPI(title="Querio Chatbot")
+_API_DOCS_OFF = {"docs_url": None, "redoc_url": None, "openapi_url": None}
+app = FastAPI(title="Querio Chatbot", **({} if ENABLE_API_DOCS else _API_DOCS_OFF))
 
 
 class Turn(BaseModel):
