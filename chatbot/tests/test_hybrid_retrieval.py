@@ -57,18 +57,33 @@ class _FakeCollection:
         self._collection = type("Collection", (), {"count": staticmethod(lambda: count)})()
 
 
-def test_dress_code_question_retrieves_the_formal_attire_rule(monkeypatch):
-    # QRO-10, on the real Placement Guidelines chunks (no embeddings needed): the rule never says
-    # "dress code", so keyword search used to rank it 12th behind the penalty line.
+def _retrieve_from_real_d4_by_keyword(monkeypatch, query):
+    """retrieve() over the real D4 documents with keyword search only (no embeddings needed)."""
     chunks = load_domain_chunks(DOMAINS["D4"])
     index = (BM25Okapi([_tokenize(chunk.page_content) for chunk in chunks]), tuple(chunks))
     monkeypatch.setattr(retriever, "_bm25_index", lambda domain_code: index)
     monkeypatch.setattr(retriever, "_get_collection", lambda domain_code: _FakeCollection(len(chunks)))
     monkeypatch.setattr(retriever, "_semantic_candidates", lambda domain_code, query, k: [])
+    return retrieve("D4", query)
 
-    results = retrieve("D4", "What is the dress code for placement drives?")
 
+def test_dress_code_question_retrieves_the_formal_attire_rule(monkeypatch):
+    # QRO-10: the rule never says "dress code", so keyword search used to rank it 12th behind the
+    # penalty line.
+    results = _retrieve_from_real_d4_by_keyword(monkeypatch, "What is the dress code for placement drives?")
     assert any("formal attire and shoes" in doc.page_content for doc in results[:3])
+
+
+@pytest.mark.parametrize(
+    "query", ["What documents do I need for an NOC?", "What is the NOC process for doing an internship?"]
+)
+def test_noc_questions_retrieve_the_noc_note(monkeypatch, query):
+    # QRO-03: no D4 document covered NOC; NOC_Process.md now points students to their department's TPO.
+    results = _retrieve_from_real_d4_by_keyword(monkeypatch, query)
+    noc = [doc for doc in results[:3] if doc.metadata.get("source_name") == "NOC Process"]
+    assert noc, [doc.metadata.get("source_name") for doc in results[:3]]
+    assert "department's Training and Placement Officer (TPO)" in noc[0].page_content
+    assert noc[0].metadata["source_section"] == "No Objection Certificate (NOC)"
 
 
 def test_tokenize_lowercases_and_keeps_percent_terms():

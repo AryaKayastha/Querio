@@ -160,7 +160,8 @@ DOMAINS: dict[str, Domain] = {
         data_dir=DATA_ROOT / "D4_career_noc",
         guidance_only=True,
         example_question="What is the eligibility for on-campus placements?",
-        contact="the Career Development & Placement Cell (CDPC)",
+        # NOC_Process.md: the department's TPO handles the NOC process and document formats.
+        contact="the Career Development & Placement Cell (CDPC), or your department's Training and Placement Officer (TPO) for NOCs",
     ),
 }
 
