@@ -30,6 +30,7 @@ Querio/
 | [`03_data_requirements.md`](./03_data_requirements.md) | Source collection plan, document metadata, and database/schema guidance |
 | [`04_scope_and_guardrails.md`](./04_scope_and_guardrails.md) | Scope limits, especially guidance-only behavior for Domains 4 and 6 |
 | [`05_evaluation_and_testing.md`](./05_evaluation_and_testing.md) | Test strategy, evaluation datasets, and demo readiness criteria |
+| [`06_deployment_plan_gcp.md`](./06_deployment_plan_gcp.md) | Free-tier Google Cloud deployment plan: architecture, costs, Gemini-on-GCP verdict, runbook |
 
 ## Key project rule
 
