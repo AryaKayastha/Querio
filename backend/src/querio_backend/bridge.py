@@ -52,6 +52,17 @@ class ChatResponse(BaseModel):
     guidance_only: bool
 
 
+BUSY_FALLBACK_MESSAGE = "Querio is busy right now. Please try again in a minute."
+
+
+def _detail_of(response: httpx.Response) -> str | None:
+    try:
+        detail = response.json().get("detail")
+    except (ValueError, AttributeError):
+        return None
+    return detail if isinstance(detail, str) and detail.strip() else None
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
     history = session_store.get_recent(request.session_id)
@@ -67,6 +78,19 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
         )
         response.raise_for_status()
         chat_response = ChatResponse.model_validate(response.json())
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 503:
+            # The chatbot is up but its models are busy or out of quota (QRO-02): pass on its
+            # "try again shortly" message and Retry-After so the UI can show them.
+            raise HTTPException(
+                status_code=503,
+                detail=_detail_of(exc.response) or BUSY_FALLBACK_MESSAGE,
+                headers={"Retry-After": exc.response.headers.get("Retry-After", "30")},
+            ) from exc
+        raise HTTPException(
+            status_code=502,
+            detail="The chatbot service is unavailable. Please try again shortly.",
+        ) from exc
     except (httpx.HTTPError, ValueError) as exc:
         raise HTTPException(
             status_code=502,

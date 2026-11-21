@@ -38,6 +38,14 @@ def env_flag(name: str) -> bool:
 # anyone who can reach the port, so they're off unless turned on for local development.
 ENABLE_API_DOCS = env_flag("ENABLE_API_DOCS")
 
+# A question that hasn't been answered after this many seconds gets a 503 "try again shortly".
+# Keep it below the backend's CHATBOT_TIMEOUT_SECONDS (45) so the student sees that message
+# instead of the backend timing out first (QRO-02).
+CHAT_DEADLINE_SECONDS = float(os.environ.get("CHAT_DEADLINE_SECONDS", "40"))
+# Questions answered at the same time; more wait their turn (within the deadline) instead of all
+# hitting the free-tier model quotas at once.
+MAX_CONCURRENT_CHATS = int(os.environ.get("MAX_CONCURRENT_CHATS", "4"))
+
 
 @dataclass(frozen=True)
 class Domain:

@@ -6,9 +6,12 @@ from collections import defaultdict
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
+# Not re-exported at the package root; it's what every embedding failure is wrapped in.
+from langchain_google_genai._common import GoogleGenerativeAIError
 from rank_bm25 import BM25Okapi
 
 from querio_chatbot.config import VECTORSTORE_DIR, collection_name
+from querio_chatbot.llm.chat import ProvidersUnavailable
 from querio_chatbot.llm.gemini_client import get_embeddings
 
 # Candidate pool size before fusion / re-rank. Final answer uses top-k from retrieve().
@@ -157,7 +160,12 @@ def _doc_key(doc: Document) -> str:
 
 def _semantic_candidates(domain_code: str, query: str, k: int) -> list[Document]:
     collection = _get_collection(domain_code)
-    return collection.similarity_search(query, k=k)
+    try:
+        return collection.similarity_search(query, k=k)
+    except GoogleGenerativeAIError as exc:
+        # Embedding the question failed (quota, timeout, outage): a provider problem, so the API
+        # answers 503 "try again shortly" rather than a bare 500 (QRO-02).
+        raise ProvidersUnavailable(f"embedding the question failed: {exc}") from exc
 
 
 def _bm25_candidates(domain_code: str, query: str, k: int) -> list[Document]:

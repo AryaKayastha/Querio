@@ -56,6 +56,8 @@ uvicorn querio_chatbot.app:app --reload --port 8001
 
 **API docs:** Swagger UI (`/docs`) and `/openapi.json` are off by default. Set `ENABLE_API_DOCS=true` in `.env` to use them on your own machine; leave it off anywhere else.
 
+**When the models can't answer:** if every chat provider fails (quota, timeout, outage), or a question isn't answered within `CHAT_DEADLINE_SECONDS` (default 40; keep it below the backend's 45 s timeout), `/chat` returns **503** with `Retry-After: 30` and a "try again in a minute" message. At most `MAX_CONCURRENT_CHATS` questions (default 4) are answered at once; the rest wait their turn within the deadline.
+
 The frontend does not call this service directly. The public request flow is:
 
 `frontend:5173` → `backend:8000` → `chatbot:8001`
