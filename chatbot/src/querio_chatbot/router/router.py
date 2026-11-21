@@ -91,6 +91,16 @@ class Classification(BaseModel):
             "than one, otherwise null"
         ),
     )
+    request_type: Literal["information", "status"] = Field(
+        default="information",
+        description=(
+            "'status' if the student asks about the state of their OWN request, application, "
+            "registration or record (e.g. 'Has my leave been approved?', 'What is the status of my "
+            "NOC application?', 'Confirm that my registration is complete'). Otherwise 'information': "
+            "they want to know a rule, process, eligibility, document or contact (e.g. 'How do I "
+            "apply for leave?')."
+        ),
+    )
 
 
 class ChatState(TypedDict, total=False):
@@ -100,9 +110,48 @@ class ChatState(TypedDict, total=False):
     confidence: float
     alternative_domain: Optional[str]
     low_confidence: bool
+    # "status" means the student asked where their own request stands, which Querio can't know.
+    request_type: str
     documents: list
     answer: str
     guidance_only: bool
+
+
+# Querio never tracks requests (Project_Details/04_scope_and_guardrails.md), so phrasings that are
+# unmistakably about the student's own request are recognised here rather than left to the
+# classifier alone. Anything subtler is still caught by Classification.request_type.
+_STATUS_REQUEST = re.compile(
+    r"""
+    \b(?:status|progress)\ of\ (?:my|our)\b                       # "the status of my NOC application"
+    | \btrack\ (?:my|our)\b                                         # "track my leave request"
+    | \b(?:has|have|is|was|were|did)\ (?:my|our)\ (?:[\w'-]+\ ){0,3}(?:been\ |got\ |get\ |gone\ )?
+      (?:approved|accepted|rejected|processed|sanctioned|granted|forwarded|cleared|completed?|done
+        |received|submitted|verified|confirmed|issued)
+      (?:\ yet|\ already|\ or\ not)?\s*(?:[?.!]|$)                  # "has my leave been approved?",
+                                                                    # not "is my leave granted if ..."
+    | (?:^|[.!?,;]\s*|\b(?:please|pls|kindly|can\ you|could\ you)\ )
+      confirm\ (?:that\ |whether\ |if\ )?(?:my|our|it|it's|its|this)\b  # "confirm my registration is done"
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+DEFAULT_CONTACT = "the relevant department office"
+
+
+def _request_type(query: str, classified: str) -> str:
+    """The classifier's request type, unless the wording itself makes it a status question."""
+    text = " ".join(query.replace("’", "'").split())
+    return "status" if _STATUS_REQUEST.search(text) else classified
+
+
+def _status_reply(state: ChatState) -> str:
+    """Fixed reply to "has my request been approved?": Querio can't know, so say who can."""
+    domain = None if state.get("low_confidence") else DOMAINS.get(state.get("domain"))
+    contact = domain.contact if domain and domain.contact else DEFAULT_CONTACT
+    return (
+        "I can't see or track the status of your requests, applications or records. I can only "
+        f"explain the college's rules and processes, so to find out where yours stands, please check with {contact}."
+    )
 
 
 def _extract_text(content) -> str:
@@ -192,11 +241,13 @@ def classify_node(state: ChatState) -> ChatState:
         "confidence": result.confidence,
         "alternative_domain": result.alternative_domain,
         "low_confidence": result.confidence < CONFIDENCE_THRESHOLD,
+        "request_type": _request_type(state["query"], result.request_type),
     }
 
 
 def retrieve_node(state: ChatState) -> ChatState:
-    if state.get("low_confidence"):
+    if state.get("low_confidence") or state.get("request_type") == "status":
+        # A status question gets a fixed reply, so there is nothing to look up (and no sources to show).
         return {"documents": []}
     domain_code = state["domain"]
     if domain_code not in DOMAINS:
@@ -206,6 +257,10 @@ def retrieve_node(state: ChatState) -> ChatState:
 
 
 def generate_node(state: ChatState) -> ChatState:
+    if state.get("request_type") == "status":
+        # Before the clarifying question: "has my request been approved?" needs no topic to answer.
+        return {"answer": _status_reply(state)}
+
     if state.get("low_confidence"):
         return {"answer": _build_clarifying_message(state)}
 
