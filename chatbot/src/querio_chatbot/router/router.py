@@ -20,6 +20,7 @@ from querio_chatbot.retrieval.retriever import _significant_tokens, retrieve
 ANSWER_FORMAT_RULES = """Formatting rules for your answer (markdown, read in a chat window):
 - Start with one sentence that directly answers the question. Don't open with "Based on the provided context".
 - List three or more items as bullets. Start each bullet with the item's name or label in **bold**, then its detail. Never bold a whole sentence.
+- If the context gives only one or two facts, answer in one or two sentences without bullets. Never add bullets to fill out an answer.
 - If the answer has more than 8 bullets or several distinct groups, put each group under a short ### heading.
 - Use at most one level of sub-bullets.
 - If the question asks for a specific number of items (e.g. "top 5"), list exactly that many.
@@ -214,6 +215,12 @@ ANSWER_ONLY_COVERED_CASES = (
     "only other cases (for example, it lists which events get leave and this one isn't listed) or "
     "doesn't mention the case, don't infer a yes or no: say the college documents don't cover that "
     "case and suggest who to ask."
+)
+STATE_ONLY_WHAT_THE_CONTEXT_SAYS = (
+    "State only what the context says. Don't add steps, conditions, documents, approvals or "
+    "implications it doesn't state, and don't fill gaps: if a table cell is '-' or blank, say plainly "
+    "which value the document leaves blank. If the answer depends on a condition, state the condition rather than a "
+    "plain yes. Never name an office, person or contact that the context doesn't name."
 )
 
 # Shortest answer worth keeping after claims are cut out; anything shorter is replaced.
@@ -427,6 +434,8 @@ def generate_node(state: ChatState) -> ChatState:
         "clearly states the answer in other words, give that answer plainly.",
         # QRO-06: inferred yes/no answers flipped between runs for cases the documents don't cover.
         ANSWER_ONLY_COVERED_CASES,
+        # QRO-07: answers added steps and conditions the source doesn't state.
+        STATE_ONLY_WHAT_THE_CONTEXT_SAYS,
         "Do not cite sources, page numbers, or section names within your answer, and do not add a "
         "closing sentence summarizing what you cited -- the student sees the source documents "
         "separately, so inline citations only clutter the answer.",
@@ -496,7 +505,7 @@ _NOT_FOUND_ANSWER = re.compile(
     r"couldn't find|could not find|can't find|cannot find|no information"
     r"|(?:don't|do not) have (?:any |the )?information"
     r"|(?:does not|doesn't|do not|don't) (?:mention|specify|say|cover|contain|include|state)"
-    r"|(?:is|are) not (?:mentioned|specified|covered|stated|listed)"
+    r"|(?:is not|are not|isn't|aren't) (?:mentioned|specified|covered|stated|listed)"
     r")\b",
     re.IGNORECASE,
 )

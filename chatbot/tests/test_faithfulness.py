@@ -11,7 +11,10 @@ from langchain_core.documents import Document
 
 from querio_chatbot.router import router
 from querio_chatbot.router.router import (
+    ANSWER_FORMAT_RULES,
     ANSWER_ONLY_COVERED_CASES,
+    STATE_ONLY_WHAT_THE_CONTEXT_SAYS,
+    _select_sources,
     answer_query,
     generate_node,
 )
@@ -43,6 +46,20 @@ def test_yes_or_no_only_for_cases_the_documents_cover(monkeypatch):
     assert "state that answer plainly instead of treating" not in prompt
 
 
+def test_no_added_facts_contacts_or_padding_bullets(monkeypatch):
+    # QRO-07: answers invented "Documentation"/"Approval"/"Implication" bullets and office names.
+    prompt = _answer_prompt(monkeypatch)
+    assert STATE_ONLY_WHAT_THE_CONTEXT_SAYS in prompt
+    assert "Never add bullets to fill out an answer." in ANSWER_FORMAT_RULES
+
+
+@pytest.mark.parametrize(
+    "answer", ["That value isn't listed.", "The NRI fee for 3rd-year ME is not listed in the fee structure."]
+)
+def test_answers_saying_a_value_is_not_listed_cite_nothing(answer):
+    assert _select_sources(answer, DOCS) == []
+
+
 live = pytest.mark.skipif(not os.environ.get("GEMINI_API_KEY"), reason="requires a real GEMINI_API_KEY")
 
 
@@ -51,3 +68,9 @@ live = pytest.mark.skipif(not os.environ.get("GEMINI_API_KEY"), reason="requires
 def test_live_uncovered_cases_get_no_inferred_yes_or_no(query):
     answer = answer_query(query)["answer"]
     assert not re.match(r"\W*(?:yes|no)\b", answer, re.IGNORECASE), answer
+
+
+@live
+def test_live_blank_fee_cell_is_not_filled_in():
+    answer = answer_query("What is the fee for 3rd year mechanical NRI?")["answer"]
+    assert not re.search(r"\d{1,2},\d{2},\d{3}", answer), answer  # no fee amount invented for a "-" cell

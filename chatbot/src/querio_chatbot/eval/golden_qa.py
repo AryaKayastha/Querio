@@ -16,6 +16,44 @@ GOLDEN_QA_SET = [
             "following the dress code is not allowed to take part in that drive (Placement Guidelines)."
         ),
     },
+    # QRO-07: answers added conditions, documents and approvals the guidelines don't state.
+    {
+        "id": "d4-self-sourced-01",
+        "domain": "D4",
+        "question": "Can I take a self-sourced offer after I'm already placed through CDPC?",
+        "reference_answer": (
+            "A self-sourced offer for a student already placed through CDPC is considered only if its package "
+            "is at least 5 LPA higher than the existing offer. The guidelines state no other conditions, "
+            "documents or approvals for this."
+        ),
+    },
+    {
+        "id": "d4-one-job-01",
+        "domain": "D4",
+        "question": "Can I sit for more placement drives after I'm selected?",
+        "reference_answer": (
+            "No. The University follows a strict 'one student, one job' policy: once a student is selected, "
+            "they are not allowed to participate in further placement drives."
+        ),
+    },
+    {
+        "id": "d4-noc-01",
+        "domain": "D4",
+        "question": "What documents do I need for an NOC?",
+        "reference_answer": (
+            "For the NOC process and the format of the documents required, contact your department's Training "
+            "and Placement Officer (TPO)."
+        ),
+    },
+    {
+        "id": "d5-fee-blank-01",
+        "domain": "D5",
+        "question": "What is the fee for 3rd year mechanical NRI?",
+        "reference_answer": (
+            "The fee structure lists no amount ('-') for 3rd-year NRI students in ME/Civil/EE, so the fee "
+            "isn't given in the document."
+        ),
+    },
     {
         "id": "d5-fees-01",
         "domain": "D5",
