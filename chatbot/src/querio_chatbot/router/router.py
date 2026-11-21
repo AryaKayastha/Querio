@@ -12,7 +12,7 @@ from querio_chatbot.config import (
     HISTORY_TURN_LIMIT,
 )
 from querio_chatbot.llm.chat import invoke_with_fallback
-from querio_chatbot.retrieval.retriever import retrieve
+from querio_chatbot.retrieval.retriever import _significant_tokens, retrieve
 
 # Placed right before the question in the prompt, where models follow formatting rules most
 # reliably; the chat UI renders markdown (bullets, ### headings, links).
@@ -115,8 +115,11 @@ class ChatState(TypedDict, total=False):
     # "status": where their own request stands, which Querio can't know. "action": do something for
     # them, which Querio can't do. Both are declined (04_scope_and_guardrails.md §3).
     request_type: str
+    # Everything retrieved, as given to the model (and to evaluation).
     documents: list
     answer: str
+    # The few documents the answer draws on, shown to the student as citations.
+    sources: list
     guidance_only: bool
 
 
@@ -356,12 +359,57 @@ def generate_node(state: ChatState) -> ChatState:
     )
     response = invoke_with_fallback(lambda model: model, prompt)
     answer = _student_facing(_extract_text(response.content))
+    sources = _select_sources(answer, documents)
     if action:
         # Fixed text, so the decline can't be dropped or reworded by the model.
         answer = f"{ACTION_DECLINE}\n\n{answer}"
     if domain and domain.answer_disclaimer:
         answer = _append_disclaimer(answer, domain.answer_disclaimer)
-    return {"answer": answer}
+    return {"answer": answer, "sources": sources}
+
+
+MAX_SOURCES = 3
+# A document is cited if it shares at least this share of the answer words that the best-matching
+# document shares -- so pages retrieved for a stray word (e.g. "semester") are left out.
+SOURCE_MIN_SHARE = 0.5
+# An answer whose first sentence says the documents don't cover the question, and that is no longer
+# than this, has nothing to cite.
+_NOT_FOUND_MAX_CHARS = 400
+_NOT_FOUND_ANSWER = re.compile(
+    r"^[^.!?\n]*\b(?:"
+    r"couldn't find|could not find|can't find|cannot find|no information"
+    r"|(?:don't|do not) have (?:any |the )?information"
+    r"|(?:does not|doesn't|do not|don't) (?:mention|specify|say|cover|contain|include|state)"
+    r"|(?:is|are) not (?:mentioned|specified|covered|stated|listed)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _select_sources(answer: str, documents: list) -> list:
+    """The few retrieved documents the answer draws on, most-used first, one per source section.
+    None when the answer only says the documents don't cover the question."""
+    answer = answer.replace("’", "'")
+    if not documents or (len(answer) <= _NOT_FOUND_MAX_CHARS and _NOT_FOUND_ANSWER.search(answer)):
+        return []
+    answer_tokens = _significant_tokens(answer)
+    scored = [
+        (len(answer_tokens & _significant_tokens(doc.page_content)), rank, doc)
+        for rank, doc in enumerate(documents)
+    ]
+    best = max(score for score, _, _ in scored)
+    if best == 0:
+        return documents[:1]  # answer shares no words with anything: fall back to the top retrieved
+    picked, seen = [], set()
+    for score, _, doc in sorted(scored, key=lambda item: (-item[0], item[1])):
+        key = (doc.metadata.get("source_name"), doc.metadata.get("source_section"))
+        if score < SOURCE_MIN_SHARE * best or key in seen:
+            continue
+        seen.add(key)
+        picked.append(doc)
+        if len(picked) == MAX_SOURCES:
+            break
+    return picked
 
 
 # Prompt wording the model sometimes echoes to the student ("The provided context does not mention...").

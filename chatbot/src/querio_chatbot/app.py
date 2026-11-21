@@ -46,7 +46,8 @@ class ChatResponse(BaseModel):
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
     result = answer_query(request.query, history=[turn.model_dump() for turn in request.history])
-    documents = result.get("documents", [])
+    # Only what the answer cites, not every retrieved chunk (QRO-12).
+    documents = result.get("sources", [])
     return ChatResponse(
         answer=result.get("answer", ""),
         domain=result.get("domain", "UNROUTED"),
