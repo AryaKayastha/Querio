@@ -51,6 +51,9 @@ class Domain:
     # Appended verbatim to every answer generated from this domain's documents, so a known gap in
     # the data is always disclosed (the model can't drop or reword it).
     answer_disclaimer: str = ""
+    # Shown to students when Querio lists what it can help with (greetings, off-topic questions).
+    # Pick a question this domain's documents answer well.
+    example_question: str = ""
 
 
 # Only domains with usable source data are active. Add a domain here (and drop its
@@ -71,6 +74,7 @@ DOMAINS: dict[str, Domain] = {
             "When you mention a club that has a website in the context, include that website link exactly "
             "as written so the student can visit it directly. Never invent or alter a URL."
         ),
+        example_question="What are the benefits of joining NCC?",
     ),
     "D2": Domain(
         code="D2",
@@ -90,6 +94,7 @@ DOMAINS: dict[str, Domain] = {
             "a link for the student to follow, not a citation. Never invent, guess or alter a URL; if the "
             "context gives no link for a certification, don't make one up."
         ),
+        example_question="Which AWS certification should I start with?",
     ),
     "D3": Domain(
         code="D3",
@@ -105,6 +110,7 @@ DOMAINS: dict[str, Domain] = {
             "*Note: this information covers only Computer Engineering (CE) students of CSPIT, not other "
             "branches or the whole institute.*"
         ),
+        example_question="Which cultural events are there in Spoural?",
     ),
     "D5": Domain(
         code="D5",
@@ -116,6 +122,7 @@ DOMAINS: dict[str, Domain] = {
         ),
         data_dir=DATA_ROOT / "D5_formal_education",
         guidance_only=False,
+        example_question="What are the subjects in semester 5?",
     ),
     "D6": Domain(
         code="D6",
@@ -128,6 +135,7 @@ DOMAINS: dict[str, Domain] = {
         ),
         data_dir=DATA_ROOT / "D6_leave_attendance",
         guidance_only=True,
+        example_question="What happens if my attendance falls below 75%?",
     ),
     "D4": Domain(
         code="D4",
@@ -141,6 +149,7 @@ DOMAINS: dict[str, Domain] = {
         ),
         data_dir=DATA_ROOT / "D4_career_noc",
         guidance_only=True,
+        example_question="What is the eligibility for on-campus placements?",
     ),
 }
 

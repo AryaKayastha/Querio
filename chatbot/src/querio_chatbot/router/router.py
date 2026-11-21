@@ -29,6 +29,47 @@ NO_ANSWER_MESSAGE = (
     "department office, or try rephrasing your question."
 )
 
+# What Querio covers, built from config.DOMAINS so it stays in step with the active domains.
+TOPICS_MESSAGE = "I can answer questions about these topics, for example:\n\n" + "\n".join(
+    f'- **{domain.name}**: "{domain.example_question}"' if domain.example_question else f"- **{domain.name}**"
+    for domain in DOMAINS.values()
+)
+
+# For UNROUTED questions: off-topic requests, jokes, insults -- and the occasional misrouted real
+# question, so it doesn't claim the topic is out of scope, only that it couldn't place it.
+OUT_OF_SCOPE_MESSAGE = (
+    "I couldn't match that to any of the topics I cover, so I can't answer it. "
+    f"{TOPICS_MESSAGE}\n\n"
+    "If your question is about one of these, try rephrasing it with a bit more detail. "
+    "For anything else, please check with the relevant department office."
+)
+
+GREETING_REPLY = f"Hi! I'm Querio, your college assistant. {TOPICS_MESSAGE}\n\nWhat would you like to know?"
+THANKS_REPLY = "You're welcome! If you have another question, just ask."
+GOODBYE_REPLY = "Goodbye, and good luck! Come back any time you have a question."
+
+# Messages that are nothing but small talk get a fixed reply with no model call. The whole message
+# must be made of these phrases (plus filler such as "ok" or "Querio"), so "hi, what are the fees?"
+# still goes to the router. Checked in this order: "thanks, bye" is answered as thanks.
+_SMALL_TALK = (
+    (
+        THANKS_REPLY,
+        r"thanks?(?: you)?|thank u|thanku|thankyou|thx|ty|tysm|much appreciated"
+        r"|for (?:the|your) (?:help|info|information|answer|reply|time)",
+    ),
+    (GOODBYE_REPLY, r"bye+(?: bye+)?|good ?bye|good night|see (?:you|ya)(?: later)?|cya|take care"),
+    (
+        GREETING_REPLY,
+        r"hi+|hey+|hello+|helo|hola|namaste|namaskar|kem cho|greetings|good (?:morning|afternoon|evening)"
+        r"|how are you(?: doing)?|whats up",
+    ),
+)
+_SMALL_TALK_FILLER = r"ok|okay|great|cool|nice|awesome|there|querio|bot|dear|sir|maam|so much|very much|a lot|and"
+_SMALL_TALK_WORD = "|".join([*(pattern for _, pattern in _SMALL_TALK), _SMALL_TALK_FILLER])
+_SMALL_TALK_MESSAGE = re.compile(rf"(?:{_SMALL_TALK_WORD})(?: (?:{_SMALL_TALK_WORD}))*")
+# Small talk is short; the cap also bounds regex backtracking on long repetitive input.
+_SMALL_TALK_MAX_CHARS = 60
+
 # Derived from config.DOMAINS so newly activated domains are automatically valid structured-
 # output values -- a hardcoded Literal here previously caused Gemini's structured output to
 # silently coerce a correct classification into UNROUTED whenever the true domain wasn't listed.
@@ -92,7 +133,21 @@ def _build_clarifying_message(state: ChatState) -> str:
             f"I'm not fully sure whether your question is about {_domain_name(domain)} "
             f"or {_domain_name(alternative)}. Could you clarify which one you mean?"
         )
-    return "I'm not fully sure which topic your question is about. Could you rephrase it with a bit more detail?"
+    return (
+        "I'm not fully sure which topic your question is about. Could you rephrase it with a bit more "
+        f"detail? {TOPICS_MESSAGE}"
+    )
+
+
+def _small_talk_reply(query: str) -> Optional[str]:
+    """The fixed reply if the message is only a greeting, thanks or goodbye, otherwise None."""
+    text = " ".join(re.sub(r"[^\w\s]|_", " ", re.sub(r"['’]", "", query.lower())).split())
+    if not text or len(text) > _SMALL_TALK_MAX_CHARS or not _SMALL_TALK_MESSAGE.fullmatch(text):
+        return None
+    for reply, pattern in _SMALL_TALK:
+        if re.search(rf"\b(?:{pattern})\b", text):
+            return reply
+    return None  # Only filler ("ok", "cool"): let the router handle it.
 
 
 def _format_history(history: Optional[list[dict]], limit: int = HISTORY_TURN_LIMIT) -> str:
@@ -152,6 +207,9 @@ def generate_node(state: ChatState) -> ChatState:
 
     documents = state.get("documents", [])
     if not documents:
+        if state.get("domain") not in DOMAINS:
+            # UNROUTED: tell the student what Querio does cover instead of a bare "no information".
+            return {"answer": OUT_OF_SCOPE_MESSAGE}
         return {"answer": NO_ANSWER_MESSAGE}
 
     context = "\n\n".join(
@@ -238,5 +296,21 @@ def get_graph():
     return _GRAPH
 
 
+def _fixed_reply(query: str, history: Optional[list[dict]], answer: str, confidence: float) -> ChatState:
+    """A complete result for a message answered without routing, retrieval or a model call."""
+    return {
+        "query": query,
+        "history": history or [],
+        "domain": "UNROUTED",
+        "confidence": confidence,
+        "documents": [],
+        "answer": answer,
+        "guidance_only": False,
+    }
+
+
 def answer_query(query: str, history: Optional[list[dict]] = None) -> ChatState:
+    small_talk = _small_talk_reply(query)
+    if small_talk is not None:
+        return _fixed_reply(query, history, small_talk, confidence=1.0)
     return get_graph().invoke({"query": query, "history": history or []})
