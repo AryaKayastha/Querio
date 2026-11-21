@@ -230,6 +230,10 @@ def generate_node(state: ChatState) -> ChatState:
         "Do not cite sources, page numbers, or section names within your answer, and do not add a "
         "closing sentence summarizing what you cited -- the student sees the source documents "
         "separately, so inline citations only clutter the answer.",
+        "Talk to the student directly and never mention 'the context' or 'the provided context' -- "
+        "the student doesn't know what that is. If the context doesn't answer the question, say you "
+        "couldn't find that in the college documents and suggest checking with the relevant office "
+        "(name a specific person or office only if the context gives one).",
     ]
     if state.get("guidance_only"):
         system_instructions.append(GUIDANCE_ONLY_SYSTEM_NOTE)
@@ -252,10 +256,28 @@ def generate_node(state: ChatState) -> ChatState:
         + f"\n\nContext:\n{context}\n\n{ANSWER_FORMAT_RULES}\n\nQuestion: {state['query']}\n\nAnswer:"
     )
     response = invoke_with_fallback(lambda model: model, prompt)
-    answer = _extract_text(response.content)
+    answer = _student_facing(_extract_text(response.content))
     if domain and domain.answer_disclaimer:
         answer = _append_disclaimer(answer, domain.answer_disclaimer)
     return {"answer": answer}
+
+
+# Prompt wording the model sometimes echoes to the student ("The provided context does not mention...").
+# "the context of ..." is ordinary English and left alone.
+_CONTEXT_PHRASE = re.compile(
+    r"\bthe\s+(?:(?:provided|given|supplied|available|retrieved)\s+)?context"
+    r"(?:\s+(?:provided|given|supplied)\b)?(?!\s+of\b)\b",
+    re.IGNORECASE,
+)
+
+
+def _student_facing(answer: str) -> str:
+    """Replace leaked prompt wording with plain language. The replacement is singular like "context",
+    so the verb that follows still agrees ("The information I have does not mention...")."""
+    return _CONTEXT_PHRASE.sub(
+        lambda match: "The information I have" if match.group(0)[0].isupper() else "the information I have",
+        answer,
+    )
 
 
 def _plain(text: str) -> str:
