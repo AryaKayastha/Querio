@@ -52,6 +52,23 @@ TOO_SHORT_REPLY = f"Please type your question in a few words and I'll do my best
 # Fewer letters/digits than this ("?", "a", "") can't be a question, so no model call is spent on it.
 _MIN_QUERY_ALNUM_CHARS = 2
 
+# With no earlier messages these can't refer to anything, so Querio asks instead of guessing or
+# answering a premise it can't check (QRO-11). With history they go to the router as usual.
+_NEEDS_EARLIER_MESSAGES = re.compile(
+    r"""
+    \b(?:as|like)\ i\ (?:told\ you|said|mentioned)\b                  # "as I told you earlier, ..."
+    | \bi\ (?:already\ )?(?:told\ you|mentioned)\ (?:earlier|before)\b
+    | ^(?:and\ |so\ |ok\ |okay\ )?(?:tell\ me\ more|more\ details?|go\ on|elaborate)
+      (?:\ (?:about|on)\ (?:it|that|this|them))?\W*$                  # only "tell me more"
+    | ^(?:and\ |so\ )?what\ about\ (?:it|its|it's|that|this|them|those|their)\b  # "what about its fees?"
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+NO_EARLIER_MESSAGES_REPLY = (
+    "I don't have any earlier messages from you in this chat, so I'm not sure what that refers to. "
+    "Could you ask your full question, including details like your programme, branch and year if they matter?"
+)
+
 # Messages that are nothing but small talk get a fixed reply with no model call. The whole message
 # must be made of these phrases (plus filler such as "ok" or "Querio"), so "hi, what are the fees?"
 # still goes to the router. Checked in this order: "thanks, bye" is answered as thanks.
@@ -103,6 +120,20 @@ class Classification(BaseModel):
             "for leave?')."
         ),
     )
+    needs_clarification: bool = Field(
+        default=False,
+        description=(
+            "True only if the question can't be answered as asked: it is a bare topic whose answer "
+            "depends on details the student hasn't given (e.g. 'fees?' -- which programme and year?), "
+            "it refers to something not said in the recent conversation ('its fees', 'that rule'), or "
+            "it relies on details the student says they gave earlier but which aren't in the recent "
+            "conversation. False for any question that can be answered as it stands."
+        ),
+    )
+    clarifying_question: Optional[str] = Field(
+        default=None,
+        description="When needs_clarification is true: one short question asking for exactly the missing detail.",
+    )
 
 
 class ChatState(TypedDict, total=False):
@@ -115,6 +146,8 @@ class ChatState(TypedDict, total=False):
     # "status": where their own request stands, which Querio can't know. "action": do something for
     # them, which Querio can't do. Both are declined (04_scope_and_guardrails.md §3).
     request_type: str
+    # Set when the question can't be answered as asked; the answer is then this question back.
+    clarification: Optional[str]
     # Everything retrieved, as given to the model (and to evaluation).
     documents: list
     answer: str
@@ -265,7 +298,8 @@ def classify_node(state: ChatState) -> ChatState:
         f"question or a reply to your own earlier clarifying question refers to, not to "
         f"override what's actually being asked now):\n{history_block}\n"
         if history_block
-        else ""
+        # Said explicitly so "as I told you..." or "what about its fees?" are recognised as unanswerable.
+        else "\nThere is no earlier conversation: this is the student's first message.\n"
     )
     prompt = (
         "You are a routing classifier for a college assistant. The assistant currently only "
@@ -276,18 +310,20 @@ def classify_node(state: ChatState) -> ChatState:
         f"Question: {state['query']}"
     )
     result = invoke_with_fallback(lambda model: model.with_structured_output(Classification), prompt)
+    clarifying_question = (result.clarifying_question or "").strip()
     return {
         "domain": result.domain,
         "confidence": result.confidence,
         "alternative_domain": result.alternative_domain,
         "low_confidence": result.confidence < CONFIDENCE_THRESHOLD,
         "request_type": _request_type(state["query"], result.request_type),
+        "clarification": clarifying_question if result.needs_clarification and clarifying_question else None,
     }
 
 
 def retrieve_node(state: ChatState) -> ChatState:
-    if state.get("low_confidence") or state.get("request_type") == "status":
-        # A status question gets a fixed reply, so there is nothing to look up (and no sources to show).
+    if state.get("low_confidence") or state.get("request_type") == "status" or state.get("clarification"):
+        # A fixed reply or a question back follows, so there is nothing to look up (and no sources to show).
         return {"documents": []}
     domain_code = state["domain"]
     if domain_code not in DOMAINS:
@@ -302,6 +338,10 @@ def generate_node(state: ChatState) -> ChatState:
         return {"answer": _status_reply(state)}
 
     action = state.get("request_type") == "action"
+    if state.get("clarification") and not action:
+        # The classifier's specific question ("Which programme and year?") beats the generic one.
+        return {"answer": state["clarification"]}
+
     domain = DOMAINS.get(state.get("domain"))
     if action and (state.get("low_confidence") or domain is None):
         # No topic to explain a process from: decline, then say what Querio does cover.
@@ -491,4 +531,6 @@ def answer_query(query: str, history: Optional[list[dict]] = None) -> ChatState:
     small_talk = _small_talk_reply(query)
     if small_talk is not None:
         return _fixed_reply(query, history, small_talk, confidence=1.0)
+    if not history and _NEEDS_EARLIER_MESSAGES.search(" ".join(query.replace("’", "'").split())):
+        return _fixed_reply(query, history, NO_EARLIER_MESSAGES_REPLY, confidence=0.0)
     return get_graph().invoke({"query": query, "history": history or []})
