@@ -124,8 +124,10 @@ DOMAINS: dict[str, Domain] = {
         name="Formal Education",
         description=(
             "Subject/syllabus queries, electives, teaching-learning process, academic "
-            "regulations, admissions counselling, scholarships, and semester fee payment "
-            "schedules."
+            "regulations, admissions counselling, scholarships, and fees: tuition and exam fee "
+            "amounts by year, branch (CSE, CE, IT, EC, ME, Civil, EE) and category (General or NRI), "
+            "payment schedules and modes (online, cash, cheque or demand draft), late-fee fines and "
+            "the penalty for a bounced cheque."
         ),
         data_dir=DATA_ROOT / "D5_formal_education",
         guidance_only=False,

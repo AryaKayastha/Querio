@@ -1,3 +1,5 @@
+import functools
+
 import pytest
 from langchain_core.documents import Document
 from rank_bm25 import BM25Okapi
@@ -57,14 +59,30 @@ class _FakeCollection:
         self._collection = type("Collection", (), {"count": staticmethod(lambda: count)})()
 
 
+@functools.lru_cache
+def _real_chunks(domain_code):
+    return tuple(load_domain_chunks(DOMAINS[domain_code]))
+
+
+def _retrieve_from_real_domain_by_keyword(monkeypatch, domain_code, query):
+    """retrieve() over a domain's real documents with keyword search only (no embeddings needed)."""
+    chunks = _real_chunks(domain_code)
+    index = (BM25Okapi([_tokenize(chunk.page_content) for chunk in chunks]), chunks)
+    monkeypatch.setattr(retriever, "_bm25_index", lambda code: index)
+    monkeypatch.setattr(retriever, "_get_collection", lambda code: _FakeCollection(len(chunks)))
+    monkeypatch.setattr(retriever, "_semantic_candidates", lambda code, query, k: [])
+    return retrieve(domain_code, query)
+
+
 def _retrieve_from_real_d4_by_keyword(monkeypatch, query):
-    """retrieve() over the real D4 documents with keyword search only (no embeddings needed)."""
-    chunks = load_domain_chunks(DOMAINS["D4"])
-    index = (BM25Okapi([_tokenize(chunk.page_content) for chunk in chunks]), tuple(chunks))
-    monkeypatch.setattr(retriever, "_bm25_index", lambda domain_code: index)
-    monkeypatch.setattr(retriever, "_get_collection", lambda domain_code: _FakeCollection(len(chunks)))
-    monkeypatch.setattr(retriever, "_semantic_candidates", lambda domain_code, query, k: [])
-    return retrieve("D4", query)
+    return _retrieve_from_real_domain_by_keyword(monkeypatch, "D4", query)
+
+
+def test_bounced_cheque_question_retrieves_the_rs_300_penalty_once_routed_to_d5(monkeypatch):
+    # QRO-04 was a routing miss (UNROUTED); within D5 the fee document's "Cheque rebounced invites a
+    # penalty of Rs. 300/-" is found. This guards that half.
+    results = _retrieve_from_real_domain_by_keyword(monkeypatch, "D5", "What is the penalty if my fee cheque bounces?")
+    assert any("penalty of Rs. 300" in doc.page_content for doc in results[:3])
 
 
 def test_dress_code_question_retrieves_the_formal_attire_rule(monkeypatch):
