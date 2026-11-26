@@ -1,27 +1,91 @@
+import base64
+import json
+import threading
+import time
+
 import httpx
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
-from querio_backend.bridge_config import CHATBOT_API_URL, CHATBOT_TIMEOUT_SECONDS, CONFIDENCE_THRESHOLD, ENABLE_API_DOCS
+from querio_backend.bridge_config import (
+    ALLOWED_ORIGINS,
+    CHATBOT_API_URL,
+    CHATBOT_AUTH,
+    CHATBOT_TIMEOUT_SECONDS,
+    CONFIDENCE_THRESHOLD,
+    ENABLE_API_DOCS,
+    RATE_LIMIT_PER_MINUTE,
+)
 from querio_backend.db.engine import get_db
 from querio_backend.db.models import QueryLog
+from querio_backend.rate_limit import SlidingWindowRateLimiter, client_ip_from_request
 from querio_backend.session_store import session_store
 
 _API_DOCS_OFF = {"docs_url": None, "redoc_url": None, "openapi_url": None}
 app = FastAPI(title="Querio Backend Bridge", **({} if ENABLE_API_DOCS else _API_DOCS_OFF))
 
-# Vite falls back to the next free port (5174, 5175, ...) when 5173 is already taken by
-# another project's dev server on the same machine -- allow a small range of dev ports
-# rather than breaking whenever that happens.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[f"http://localhost:{port}" for port in range(5173, 5178)],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+rate_limiter = SlidingWindowRateLimiter(max_requests=RATE_LIMIT_PER_MINUTE, window_seconds=60.0)
+_token_lock = threading.Lock()
+_cached_id_token: tuple[str, float] | None = None
+
+
+def _jwt_expiry(token: str) -> float:
+    """Extract the JWT exp claim without verifying signature; fall back to 5 minutes."""
+    try:
+        payload_segment = token.split(".")[1]
+        padding = "=" * (-len(payload_segment) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(payload_segment + padding))
+        exp = payload.get("exp")
+        if isinstance(exp, (int, float)):
+            return float(exp)
+    except (IndexError, ValueError, TypeError):
+        pass
+    return time.time() + 300.0
+
+
+def _fetch_google_id_token(audience: str) -> str:
+    """Fetch a Cloud Run service-to-service ID token for the target audience."""
+    from google.auth.transport.requests import Request as GoogleAuthRequest
+    from google.oauth2 import id_token
+
+    return id_token.fetch_id_token(GoogleAuthRequest(), audience)
+
+
+def _chatbot_headers() -> dict[str, str]:
+    """Return auth headers for calling the chatbot when CHATBOT_AUTH=google."""
+    if CHATBOT_AUTH != "google":
+        return {}
+
+    global _cached_id_token
+    now = time.time()
+    with _token_lock:
+        if _cached_id_token and now < _cached_id_token[1] - 60.0:
+            token = _cached_id_token[0]
+        else:
+            token = _fetch_google_id_token(CHATBOT_API_URL)
+            _cached_id_token = (token, _jwt_expiry(token))
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _enforce_rate_limit(request: Request) -> None:
+    """Limit /chat requests per client IP to protect LLM quota."""
+    retry_after = rate_limiter.check(client_ip_from_request(request))
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="You're sending questions too quickly. Please wait a moment and try again.",
+            headers={"Retry-After": str(retry_after)},
+        )
 
 
 class ChatRequest(BaseModel):
@@ -63,7 +127,7 @@ def _detail_of(response: httpx.Response) -> str | None:
     return detail if isinstance(detail, str) and detail.strip() else None
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat", response_model=ChatResponse, dependencies=[Depends(_enforce_rate_limit)])
 def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
     history = session_store.get_recent(request.session_id)
     payload = {"query": request.query}
@@ -71,11 +135,11 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
         payload["history"] = history
 
     try:
-        response = httpx.post(
-            f"{CHATBOT_API_URL}/chat",
-            json=payload,
-            timeout=CHATBOT_TIMEOUT_SECONDS,
-        )
+        headers = _chatbot_headers()
+        post_kwargs: dict = {"json": payload, "timeout": CHATBOT_TIMEOUT_SECONDS}
+        if headers:
+            post_kwargs["headers"] = headers
+        response = httpx.post(f"{CHATBOT_API_URL}/chat", **post_kwargs)
         response.raise_for_status()
         chat_response = ChatResponse.model_validate(response.json())
     except httpx.HTTPStatusError as exc:
@@ -124,7 +188,11 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
 @app.get("/health")
 def health() -> dict:
     try:
-        response = httpx.get(f"{CHATBOT_API_URL}/health", timeout=3)
+        headers = _chatbot_headers()
+        get_kwargs: dict = {"timeout": 3}
+        if headers:
+            get_kwargs["headers"] = headers
+        response = httpx.get(f"{CHATBOT_API_URL}/health", **get_kwargs)
         response.raise_for_status()
         chatbot_health = response.json()
     except (httpx.HTTPError, ValueError):

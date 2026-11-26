@@ -1,3 +1,7 @@
+.wrapper {
+  width: 100%;
+}
+
 .inputBar {
   display: flex;
   align-items: center;
@@ -83,4 +87,12 @@
   box-shadow: none;
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.privacyNotice {
+  margin: 8px 6px 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--color-muted);
+  text-align: center;
 }

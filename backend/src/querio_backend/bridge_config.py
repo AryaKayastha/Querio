@@ -8,6 +8,21 @@ load_dotenv(dotenv_path=BACKEND_ROOT / ".env", override=True)
 
 CHATBOT_API_URL = os.environ.get("CHATBOT_API_URL", "http://localhost:8001").rstrip("/")
 CHATBOT_TIMEOUT_SECONDS = float(os.environ.get("CHATBOT_TIMEOUT_SECONDS", "25"))
+CHATBOT_AUTH = os.environ.get("CHATBOT_AUTH", "").strip().lower()
+
+_DEFAULT_ALLOWED_ORIGINS = [f"http://localhost:{port}" for port in range(5173, 5178)]
+
+
+def parse_allowed_origins(raw: str | None) -> list[str]:
+    """Parse a comma-separated list of CORS origins, falling back to local Vite ports."""
+    if not raw or not raw.strip():
+        return list(_DEFAULT_ALLOWED_ORIGINS)
+    origins = [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+    return origins or list(_DEFAULT_ALLOWED_ORIGINS)
+
+
+ALLOWED_ORIGINS = parse_allowed_origins(os.environ.get("ALLOWED_ORIGINS"))
+RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "10"))
 
 
 def env_flag(name: str) -> bool:

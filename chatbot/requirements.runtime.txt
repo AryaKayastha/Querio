@@ -1,0 +1,12 @@
+langchain
+langchain-google-genai
+langchain-groq
+langchain-chroma
+langchain-text-splitters
+langgraph
+chromadb
+rank-bm25
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
