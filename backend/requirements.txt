@@ -4,6 +4,7 @@ pydantic
 python-dotenv
 httpx
 google-auth
+requests
 pytest
 sqlalchemy
 alembic
